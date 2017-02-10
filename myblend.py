@@ -99,7 +99,7 @@ look_at(bpy.data.objects['Camera'], mathutils.Vector((0,0,0)))
 ###
 
 
-for i in np.arange(20):
+for i in np.arange(101, 1000):
     # Assign random poses to object ###################################################
         
     alpha = np.random.uniform(0, 360)
