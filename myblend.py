@@ -32,8 +32,27 @@ def saveMeshAsCloud(meshObj, filename):
     n_vert = len(meshObj.data.vertices)
     points = np.empty((n_vert, 3))    
     for vertex in meshObj.data.vertices:
-        points[vertex.index,:] = vertex.co.to_tuple()
-    np.savetxt(filename, points)
+        global_co = meshObj.matrix_world * vertex.co #Covert object coords to global
+        points[vertex.index,:] = global_co.to_tuple()     
+    points = points.flatten()
+    
+#    np.savetxt(filename, points.reshape(1, points.shape[0]),delimiter=",")
+    
+    data = np.concatenate(([filename[:-3] + 'png'], points))
+    np.savetxt(filename, data.reshape(1, data.shape[0]), delimiter=",", fmt="%s")
+
+
+def getCloud(meshObj):
+    """ Takes a blender object and returns the corresponding
+    point cloud to as a 1D numpy array"""
+    
+    n_vert = len(meshObj.data.vertices)
+    points = np.empty((n_vert, 3))    
+    for vertex in meshObj.data.vertices:
+        global_co = meshObj.matrix_world * vertex.co #Covert object coords to global
+        points[vertex.index,:] = global_co.to_tuple()     
+    points = points.flatten()
+    return points
     
 def look_at(obj_camera, point):
     """ Points given camera in the direction of point """
@@ -41,7 +60,7 @@ def look_at(obj_camera, point):
     direction = point - loc_camera
     # point the cameras '-Z' and use its 'Y' as up
     rot_quat = direction.to_track_quat('-Z', 'Y')
-    # assume we're using euler rotation
+    # assume ptCloudArrwe're using euler rotation
     obj_camera.rotation_euler = rot_quat.to_euler()
 
 class Timer(object):
@@ -101,19 +120,42 @@ bpy.ops.xps_tools.convert_to_cycles_selected()
 #    makedirs(directory + 'output')
 
 #with Timer():
-for i in np.arange(1000, 1001):
+
+    
+iters = 10    
+n_vert = len(obj.data.vertices)
+
+ptCloudArr = np.empty((iters, n_vert*3))
+
+for i in np.arange(iters):
     # Assign random poses to object
     randomRotateTranslate(obj, 3)
 
     # Save Image
-    bpy.context.scene.render.filepath = directory+'output/{}_{:03}.png'.format(obj_name, i)
+    bpy.context.scene.render.filepath = directory+'output2/{}_{:03}.png'.format(obj_name, i)
     #224x224
     bpy.context.scene.render.resolution_x = 448 
     bpy.context.scene.render.resolution_y = 448
     bpy.ops.render.render( write_still=True ) 
     
     # Save point cloud to .csv
-    saveMeshAsCloud(obj, directory+'output/{}_{:03}.csv'.format(obj_name, i))
+    saveMeshAsCloud(obj, directory+'output2/{}_{:03}.csv'.format(obj_name, i))
+
+    #Store point cloud in array
+#    ptCloudArr[i,:] = getCloud(obj)
+
+#Save pt array to file
+#np.savetxt(fname=directory+'output1/points_data.csv', X=ptCloudArr, delimiter=',')
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 #    bpy.ops.export_scene.obj(filepath='/home/arvardaz/SFT_with_CNN/output/{}_{:03}.obj'.format(obj_name, i), use_selection = True)
 
 

@@ -16,13 +16,17 @@ import numpy as np
 from scipy.misc import imread, imresize
 from imagenet_classes import class_names
 import os
+from glob import glob1
+from tensorflow.python.framework import ops
+from tensorflow.python.framework import dtypes
 
+import matplotlib.pyplot as plt
 class vgg16:
     def __init__(self, imgs, weights=None, sess=None):
         self.imgs = imgs
         self.convlayers()
         self.fc_layers()
-        self.out = fc3l# tf.nn.softmax(self.fc3l)
+        self.probs = self.fc4l #tf.nn.softmax(self.fc3l)
         if weights is not None and sess is not None:
             self.load_weights(weights, sess)
 
@@ -240,51 +244,136 @@ class vgg16:
 
         # fc3
         with tf.name_scope('fc3') as scope:
-            fc3w = tf.Variable(tf.truncated_normal([4096, 1002],
+            fc3w = tf.Variable(tf.truncated_normal([4096, 1000],
                                                          dtype=tf.float32,
-                                                         stddev=1e-1), trainable=True, name='weights')
-            fc3b = tf.Variable(tf.constant(1.0, shape=[1002], dtype=tf.float32),
-                                 trainable=True, name='biases')
-            self.fc3l = tf.nn.bias_add(tf.matmul(self.fc2, fc3w), fc3b)
+                                                         stddev=1e-1), trainable=False, name='weights')
+            fc3b = tf.Variable(tf.constant(1.0, shape=[1000], dtype=tf.float32),
+                                 trainable=False, name='biases')
+            fc3l = tf.nn.bias_add(tf.matmul(self.fc2, fc3w), fc3b)
+            self.fc3 = tf.nn.relu(fc3l)
             self.parameters += [fc3w, fc3b]
+            
+        ###########################################################
+        with tf.name_scope('fc4') as scope:
+            fc4w = tf.Variable(tf.random_normal([1000, 3006],
+                                                dtype=tf.float32),
+                                                trainable=True, name='weights')
+            fc4b = tf.Variable(tf.constant(0, shape=[3006], dtype=tf.float32),
+                               trainable=True, name='biases')
+            self.fc4l = tf.nn.bias_add(tf.matmul(self.fc3, fc4w), fc4b)
 
     def load_weights(self, weight_file, sess):
         weights = np.load(weight_file)
         keys = sorted(weights.keys())
+        print "Loading weights.."
         for i, k in enumerate(keys):
-            if 'fc8' in k:
-                continue
-            print i, k, np.shape(weights[k])
+            #print i, k, np.shape(weights[k])
             sess.run(self.parameters[i].assign(weights[k]))
+        print "Weights loaded"
+
+def getFileList(datapath):
+    file_names_csv = glob1(datapath ,"*.csv")
+    file_list_csv = [os.path.join(datapath, fname) for fname in file_names_csv]
+    file_list_png = [os.path.join(datapath, fname[:-3] + 'png') for fname in file_names_csv] #remove extension
+    return (file_list_png, file_list_csv)
+
+def read_files(filename_queue):
+    textReader = tf.TextLineReader()
+    _, csv_content = textReader.read(filename_queue)    
+    record_defaults = [tf.constant([], dtype=tf.string)] + [tf.constant([], dtype=tf.float32)]*3006
+    all_data = tf.decode_csv(csv_content, record_defaults=record_defaults, field_delim=",")
+
+    im_name = all_data[0]
+    coords = tf.pack(all_data[1:])
+    
+    im_cont = tf.read_file(im_name)
+    example = tf.image.decode_png(im_cont, channels=3)
+    return example, coords
+
+def input_pipeline(filenames, batch_size, num_epochs=None):
+    filenames_tensor = ops.convert_to_tensor(filenames, dtype=dtypes.string)
+    filename_queue = tf.train.string_input_producer(filenames_tensor,num_epochs=num_epochs, shuffle=False)
+
+    example, coords = read_files(filename_queue)    
+    
+    #define tensor shape       
+    example.set_shape([224, 224, 3])
+    coords.set_shape((3006,))
+    
+    image_batch, points_batch = batch_queue(example, coords)
+        
+    return image_batch, points_batch 
+
+def batch_queue(examples, coords):
+    
+    min_after_dequeue = 1000
+    capacity = min_after_dequeue + 3 * batch_size
+    
+    example_batch, coords_batch = tf.train.shuffle_batch( [examples, coords], batch_size=batch_size, capacity=capacity,
+            min_after_dequeue=min_after_dequeue)   
+    return example_batch, coords_batch
+    
+    
 
 if __name__ == '__main__':
     
-    os.chdir('/home/arvardaz/SFT_with_CNN/')
-    data = np.genfromtxt('./output/pillow_2k_000.csv')
-    data = data.flatten() #(3006,)
-    im = imread('./output/pillow_2k_000.png', mode='RGB')
-    
+    datapath = "../output"
     #params
     learning_rate = 0.01
-    train_it = 100
-    
-    
-    #y = tf.placeholder
-    imgs = tf.placeholder(tf.float32, [None, 224, 224, 3])
-    Y_pred = tf.placeholder(tf.float32, [None, 3006])
-    
-    cost = tf.reduce_mean(tf.square(data - Y_pred))
-    optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost)
-    
-    init = tf.initialize_all_variables()
-    
-    with tf.Session() as sess:
+#    train_it = 100
+    num_epochs = 2
+    batch_size = 1   
+    with tf.Graph().as_default():
         
-        sess.run(init)
-        vgg = vgg16(imgs, 'vgg16_weights.npz', sess)
-    #
-        for epoch in range(train_it):
-            _, c = sess.run([optimizer, cost], feed_dict={vgg.imgs: [im]})
-            Y_pred = sess.run(vgg.out, feed_dict={vgg.imgs: [im]})
-            sess.run(optimizer, feed_dict={X: xs[idxs_i], Y: ys[idxs_i]})
+        _, filenames = getFileList(datapath)
+         
+        # Divide train/test = 70/30
+        idx = int(round(len(filenames) * 0.7))
+        filenames_train = filenames[:idx]
+        filenames_test = filenames[idx:]
+        
+        images_batch_train, points_batch_train = input_pipeline(filenames_train, batch_size, num_epochs)
+#        images_batch_test, points_batch_test = input_pipeline(filenames_test, batch_size, num_epochs)
+        
+        
+        x = tf.placeholder(tf.float32, [None, 224, 224, 3])
+        y = tf.placeholder(tf.float32, [None, 3006])
+
+
+        vgg = vgg16(x)
+        
+    #      
+        cost = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.probs))))
+        optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost)
     
+        
+        
+        with tf.Session() as sess:
+    
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.local_variables_initializer()) 
+            
+            
+            vgg.load_weights('vgg16_weights.npz', sess)
+        
+            
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(coord=coord, sess=sess)
+    
+            sess.graph.finalize()
+
+            try:
+                while not coord.should_stop():
+                    example, coords = sess.run([images_batch_train, points_batch_train])
+                    # Run training steps or whatever
+                    _, loss = sess.run([optimizer, cost], feed_dict={x: example, y:coords})
+                    print("loss = {}".format(loss))
+
+            except tf.errors.OutOfRangeError:
+                print('Done training -- epoch limit reached')
+            finally:
+                # When done, ask the threads to stop.
+                coord.request_stop()
+
+
+            coord.join(threads)
