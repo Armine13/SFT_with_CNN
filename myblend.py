@@ -114,15 +114,15 @@ obj.select = True
 #Import texture
 bpy.ops.xps_tools.convert_to_cycles_selected()
 
-# Clear directory 'output'
-#if path.exists(directory+ 'output'):
-#    rmtree(directory + 'output')
-#    makedirs(directory + 'output')
+# # Clear directory 'output'
+if path.exists(directory+ 'output'):
+    rmtree(directory + 'output')
+    makedirs(directory + 'output')
 
 #with Timer():
 
     
-iters = 10    
+iters = 3000    
 n_vert = len(obj.data.vertices)
 
 ptCloudArr = np.empty((iters, n_vert*3))
@@ -132,14 +132,14 @@ for i in np.arange(iters):
     randomRotateTranslate(obj, 3)
 
     # Save Image
-    bpy.context.scene.render.filepath = directory+'output2/{}_{:03}.png'.format(obj_name, i)
+    bpy.context.scene.render.filepath = directory+'output/{}_{:03}.png'.format(obj_name, i)
     #224x224
     bpy.context.scene.render.resolution_x = 448 
     bpy.context.scene.render.resolution_y = 448
-    bpy.ops.render.render( write_still=True ) 
+    bpy.ops.render.render( write_still=True) 
     
     # Save point cloud to .csv
-    saveMeshAsCloud(obj, directory+'output2/{}_{:03}.csv'.format(obj_name, i))
+    saveMeshAsCloud(obj, directory+'output/{}_{:03}.csv'.format(obj_name, i))
 
     #Store point cloud in array
 #    ptCloudArr[i,:] = getCloud(obj)

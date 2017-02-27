@@ -1,3 +1,6 @@
 __pycache__
 temp*
-*.npz
+src/vgg16_weights.npz
+src/logs
+output1
+output2

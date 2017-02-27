@@ -13,20 +13,21 @@
 
 import tensorflow as tf
 import numpy as np
-from scipy.misc import imread, imresize
-from imagenet_classes import class_names
+#from scipy.misc import imread, imresize
+#from imagenet_classes import class_names
 import os
 from glob import glob1
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import dtypes
+import time
+#import matplotlib.pyplot as plt
 
-import matplotlib.pyplot as plt
 class vgg16:
     def __init__(self, imgs, weights=None, sess=None):
         self.imgs = imgs
         self.convlayers()
         self.fc_layers()
-        self.probs = self.fc4l #tf.nn.softmax(self.fc3l)
+        self.pred = self.fc4l #tf.nn.softmax(self.fc3l)
         if weights is not None and sess is not None:
             self.load_weights(weights, sess)
 
@@ -255,12 +256,12 @@ class vgg16:
             
         ###########################################################
         with tf.name_scope('fc4') as scope:
-            fc4w = tf.Variable(tf.random_normal([1000, 3006],
+            self.fc4w = tf.Variable(tf.random_normal([1000, 3006],
                                                 dtype=tf.float32),
                                                 trainable=True, name='weights')
-            fc4b = tf.Variable(tf.constant(0, shape=[3006], dtype=tf.float32),
+            self.fc4b = tf.Variable(tf.constant(0, shape=[3006], dtype=tf.float32),
                                trainable=True, name='biases')
-            self.fc4l = tf.nn.bias_add(tf.matmul(self.fc3, fc4w), fc4b)
+            self.fc4l = tf.nn.bias_add(tf.matmul(self.fc3, self.fc4w), self.fc4b)
 
     def load_weights(self, weight_file, sess):
         weights = np.load(weight_file)
@@ -271,6 +272,15 @@ class vgg16:
             sess.run(self.parameters[i].assign(weights[k]))
         print "Weights loaded"
 
+    def load_new_weights(self, weight_file, sess):
+        weights = np.load(weight_file)
+        keys = sorted(weights.keys())
+        print "Loading weights.."
+        for i, k in enumerate(keys):
+            #print i, k, np.shape(weights[k])
+            sess.run(self.parameters[i].assign(weights[k]))
+        print "Weights loaded"
+        
 def getFileList(datapath):
     file_names_csv = glob1(datapath ,"*.csv")
     file_list_csv = [os.path.join(datapath, fname) for fname in file_names_csv]
@@ -317,23 +327,25 @@ def batch_queue(examples, coords):
 
 if __name__ == '__main__':
     
-    datapath = "../output"
+    datapath = "../output1"
     #params
-    learning_rate = 0.01
+    learning_rate = 0.1
+    reg_constant = 0.001
+    
 #    train_it = 100
-    num_epochs = 2
+    num_epochs = 1
     batch_size = 1   
     with tf.Graph().as_default():
         
         _, filenames = getFileList(datapath)
          
-        # Divide train/test = 70/30
-        idx = int(round(len(filenames) * 0.7))
+        # Divide train/test 
+        idx = int(round(len(filenames) * 0.8))
         filenames_train = filenames[:idx]
         filenames_test = filenames[idx:]
         
         images_batch_train, points_batch_train = input_pipeline(filenames_train, batch_size, num_epochs)
-#        images_batch_test, points_batch_test = input_pipeline(filenames_test, batch_size, num_epochs)
+        images_batch_test, points_batch_test = input_pipeline(filenames_test, batch_size, num_epochs)
         
         
         x = tf.placeholder(tf.float32, [None, 224, 224, 3])
@@ -342,38 +354,91 @@ if __name__ == '__main__':
 
         vgg = vgg16(x)
         
-    #      
-        cost = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.probs))))
-        optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost)
+        #Regularization term
+        vars   = tf.trainable_variables()
+        lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in vars if 'bias' not in v.name ])
     
-        
+        cost_train = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred)))) + lossL2 * reg_constant
+        cost_test = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred))))
+        optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train)
+    
+        #Summary for cost
+        tf.summary.scalar("cost", cost_train)
+        summary_op = tf.merge_all_summaries()
+#        summary_op = tf.summary.merge()
         
         with tf.Session() as sess:
-    
+#        sess = tf.InteractiveSession()
             sess.run(tf.global_variables_initializer())
-            sess.run(tf.local_variables_initializer()) 
+            sess.run(tf.local_variables_initializer())
             
             
             vgg.load_weights('vgg16_weights.npz', sess)
         
+            writer = tf.summary.FileWriter("logs/", graph=tf.get_default_graph())
             
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord, sess=sess)
     
-            sess.graph.finalize()
-
+    #            sess.graph.finalize()
+    
             try:
+                step = 0
                 while not coord.should_stop():
-                    example, coords = sess.run([images_batch_train, points_batch_train])
-                    # Run training steps or whatever
-                    _, loss = sess.run([optimizer, cost], feed_dict={x: example, y:coords})
-                    print("loss = {}".format(loss))
+                    start_time = time.time()
+                    
+                    example, coords = sess.run([images_batch_train, points_batch_train])                                        
+                    duration = time.time() - start_time
+                                        
+                     # Write the summaries and print an overview fairly often.
+                    if step % 10 == 0:
+#                        # Update the events file.
+                        _, loss, summary_str = sess.run([optimizer, cost_train, summary_op], feed_dict={x: example, y:coords})
+                        # Print status to stdout.
+                        print('Step %d: loss = %.2f (%.3f sec)' % (step, loss, duration))
+                        writer.add_summary(summary_str, step)
+                    else:
+                        _, loss = sess.run([optimizer, cost_train], feed_dict={x: example, y:coords})
+                    step += 1
 
+    
             except tf.errors.OutOfRangeError:
                 print('Done training -- epoch limit reached')
             finally:
                 # When done, ask the threads to stop.
                 coord.request_stop()
-
-
-            coord.join(threads)
+                coord.join(threads)
+            
+            print("Evaluation..")
+            losses = []
+            
+            coord2 = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(coord=coord2, sess=sess)
+            try:
+                step = 0
+                while not coord2.should_stop():
+                    start_time = time.time()
+                    example_test, coords_test = sess.run([images_batch_test, points_batch_test])
+                    test_loss = cost_test.eval(feed_dict={x: example_test, y:coords_test})
+                    losses.append(test_loss)
+                    if step % 10 == 0:
+#                        print('Test error = {}'.format(test_loss))
+                        print('Step %d: loss = %.2f (%.3f sec)' % (step, test_loss, duration))
+                    step += 1
+            except tf.errors.OutOfRangeError:
+                print('Done testing -- epoch limit reached')
+            finally:
+                # When done, ask the threads to stop.
+                coord2.request_stop()
+                coord2.join(threads)
+                print("Average Error: {}".format(np.mean(losses)))
+            
+            writer.close()
+            
+            weights = {}
+            weights['fc9_W'] = vgg.fc4w.eval()
+            weights['fc9_b'] = vgg.fc4b.eval()
+            fname = "fc4_weights_"+str(time.time())+".npz"
+            np.savez(fname, **weights)
+            print('weights saved to {}.'.format(fname))
+    
