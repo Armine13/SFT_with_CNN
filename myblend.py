@@ -5,6 +5,7 @@ import time
 from os import makedirs, path
 from shutil import rmtree
 import sys
+from time import time
 #######################
 #!/usr/bin/python
 
@@ -24,16 +25,47 @@ def randomRotateTranslate(meshObj, std):
     obj_y = std * np.random.randn()
     obj_z = std * np.random.randn()
     obj.location = mathutils.Vector((obj_x, obj_y, obj_z))
+
+def saveEdgesLen(meshObj, points):
+    faces = np.empty((len(meshObj.data.polygons), 3), dtype=int)
+    for i, f in enumerate(meshObj.data.polygons):
+        faces[i, :] = np.asarray(f.vertices)
+      
+    edges = np.vstack((faces[:,:2], faces[:,1:], faces[:,[0,2]]))
+    edges = np.sort(edges, 1)
+    edges = np.vstack({tuple(row) for row in edges})
+        
+    dist = np.zeros(len(edges))
     
-def saveMeshAsCloud(meshObj, filename):
+    dist = np.sqrt(np.sum(np.square(points[edges[:,0]] - points[edges[:,1]]),1))
+    
+    np.savetxt("edges.csv", edges)
+    np.savetxt("dist.csv", dist)
+    
+def saveMeshAsCloud(meshObj, camObj, filename, saveEdgesFlag = False):
     """ Takes a blender object and saves the corresponding
     point cloud to <filename.csv> file """
     
     n_vert = len(meshObj.data.vertices)
     points = np.empty((n_vert, 3))    
+    
+    camWorldMat = np.asarray(camObj.matrix_world)
+    #Invert [Rt]
+    worldCamMat = np.vstack((np.hstack((camWorldMat[:3,:3].transpose(), 
+                                        -np.dot(camWorldMat[:3,:3].transpose(), 
+                                                camWorldMat[:3,3].reshape(3,1)))), [0,0,0,1]))
+    
+    worldCamMat = mathutils.Matrix(worldCamMat) #from numpy to Matrix
+        
+    points = np.empty((n_vert, 3))    
     for vertex in meshObj.data.vertices:
-        global_co = meshObj.matrix_world * vertex.co #Covert object coords to global
-        points[vertex.index,:] = global_co.to_tuple()     
+        global_co =  meshObj.matrix_world * vertex.co #Object to world frame
+        cam_co = worldCamMat * global_co #World to Camera frame
+        points[vertex.index,:] = cam_co.to_tuple() 
+    
+    if saveEdgesFlag == True:
+        saveEdgesLen(meshObj, points)
+        
     points = points.flatten()
     
 #    np.savetxt(filename, points.reshape(1, points.shape[0]),delimiter=",")
@@ -81,8 +113,6 @@ class Timer(object):
 directory = os.path.dirname(os.path.realpath(sys.argv[0])) + '/SFT_with_CNN/'
 
 
-
-
 #directory = '/home/arvardaz/SFT_with_CNN/'
 
 ##Delete all existing objects from scene except Camera and Plane
@@ -111,35 +141,39 @@ obj = bpy.data.objects[obj_name]
 bpy.ops.object.select_all(action='DESELECT')
 obj.select = True
 
+#Camera object
+cam = bpy.data.objects["Camera"]
+
 #Import texture
 bpy.ops.xps_tools.convert_to_cycles_selected()
 
 # # Clear directory 'output'
-if path.exists(directory+ 'output'):
-    rmtree(directory + 'output')
-    makedirs(directory + 'output')
+#if path.exists(directory+ 'output'):
+#    rmtree(directory + 'output')
+#    makedirs(directory + 'output')
 
 #with Timer():
 
     
-iters = 3000    
+iters = 5000    
 n_vert = len(obj.data.vertices)
 
 ptCloudArr = np.empty((iters, n_vert*3))
 
+fname = str(time()) #obj_name + 
 for i in np.arange(iters):
     # Assign random poses to object
     randomRotateTranslate(obj, 3)
 
     # Save Image
-    bpy.context.scene.render.filepath = directory+'output/{}_{:03}.png'.format(obj_name, i)
+    bpy.context.scene.render.filepath = directory+'output2/{}_{:03}.png'.format(fname, i)
     #224x224
     bpy.context.scene.render.resolution_x = 448 
     bpy.context.scene.render.resolution_y = 448
     bpy.ops.render.render( write_still=True) 
     
     # Save point cloud to .csv
-    saveMeshAsCloud(obj, directory+'output/{}_{:03}.csv'.format(obj_name, i))
+    saveMeshAsCloud(obj, cam, directory+'output2/{}_{:03}.csv'.format(fname, i), False)
 
     #Store point cloud in array
 #    ptCloudArr[i,:] = getCloud(obj)
