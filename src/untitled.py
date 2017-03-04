@@ -31,7 +31,7 @@ class vgg16:
         self.imgs = imgs
         self.convlayers()
         self.fc_layers()
-        self.pred = self.fc5l #tf.nn.softmax(self.fc3l)
+        self.pred = self.fc3l #tf.nn.softmax(self.fc3l)
         if weights is not None and sess is not None:
             self.load_weights(weights, sess)
 
@@ -228,65 +228,40 @@ class vgg16:
             shape = int(np.prod(self.pool5.get_shape()[1:]))
             self.fc1w = tf.Variable(tf.truncated_normal([shape, 4096],
                                                          dtype=tf.float32,
-                                                         stddev=1e-1), trainable=False, name='weights')
+                                                         stddev=1e-1), trainable=True, name='weights')
             self.fc1b = tf.Variable(tf.constant(1.0, shape=[4096], dtype=tf.float32),
-                                 trainable=False, name='biases')
+                                 trainable=True, name='biases')
             pool5_flat = tf.reshape(self.pool5, [-1, shape])
             fc1l = tf.nn.bias_add(tf.matmul(pool5_flat, self.fc1w), self.fc1b)
             self.fc1 = tf.nn.relu(fc1l)
-            self.parameters += [self.fc1w, self.fc1b]
-#            self.retrained_parameters += [self.fc1w, self.fc1b]
+            #self.parameters += [self.fc1w, self.fc1b]
+            self.retrained_parameters += [self.fc1w, self.fc1b]
 
 
         # fc2
         with tf.name_scope('fc2') as scope:
             self.fc2w = tf.Variable(tf.truncated_normal([4096, 4096],
                                                          dtype=tf.float32,
-                                                         stddev=1e-1), trainable=False, name='weights')
+                                                         stddev=1e-1), trainable=True, name='weights')
             self.fc2b = tf.Variable(tf.constant(1.0, shape=[4096], dtype=tf.float32),
-                                 trainable=False, name='biases')
+                                 trainable=True, name='biases')
             fc2l = tf.nn.bias_add(tf.matmul(self.fc1, self.fc2w), self.fc2b)
             self.fc2 = tf.nn.relu(fc2l)
-            self.parameters += [self.fc2w, self.fc2b]
-#            self.retrained_parameters += [self.fc2w, self.fc2b]
+            #self.parameters += [self.fc2w, self.fc2b]
+            self.retrained_parameters += [self.fc2w, self.fc2b]
 
-        # fc3
+
         with tf.name_scope('fc3') as scope:
-            self.fc3w = tf.Variable(tf.truncated_normal([4096, 1000],
-                                                         dtype=tf.float32,
-                                                         stddev=1e-1), trainable=True, name='weights')
-            self.fc3b = tf.Variable(tf.constant(1.0, shape=[1000], dtype=tf.float32),
-                                 trainable=True, name='biases')
-            fc3l = tf.nn.bias_add(tf.matmul(self.fc2, self.fc3w), self.fc3b)
-            self.fc3 = tf.nn.relu(fc3l)
-#            self.parameters += [self.fc3w, self.fc3b]
-            self.retrained_parameters += [self.fc3w, self.fc3b]
-            
-        ###########################################################
-        with tf.name_scope('fc4') as scope:
-            self.fc4w = tf.Variable(tf.random_normal([1000, 2000],
-                                                dtype=tf.float32)*tf.sqrt(2.0/2000),
-                                                trainable=True, name='weights')
-            self.fc4b = tf.Variable(tf.constant(0, shape=[2000], dtype=tf.float32),
-                               trainable=True, name='biases')
-            fc4l = tf.nn.bias_add(tf.matmul(self.fc3, self.fc4w), self.fc4b)
-            tf.summary.histogram("out_fc4w", self.fc4w)
-            tf.summary.histogram("out_fc4b", self.fc4b)
-            
-            self.fc4 = tf.nn.relu(fc4l)
-            self.retrained_parameters +=[self.fc4w, self.fc4b]
-        
-
-        with tf.name_scope('fc5') as scope:
-            self.fc5w = tf.Variable(tf.random_normal([2000, 3006],
+            self.fc3w = tf.Variable(tf.random_normal([4096, 3006],
                                                 dtype=tf.float32)*tf.sqrt(2.0/3006),
                                                 trainable=True, name='weights')
-            self.fc5b = tf.Variable(tf.constant(0, shape=[3006], dtype=tf.float32),
+            self.fc3b = tf.Variable(tf.constant(0, shape=[3006], dtype=tf.float32),
                                trainable=True, name='biases')
-            self.fc5l = tf.nn.bias_add(tf.matmul(self.fc4, self.fc5w), self.fc5b)
-            tf.summary.histogram("out_fc5w", self.fc5w)
-            tf.summary.histogram("out_fc5b", self.fc5b)
-            self.retrained_parameters +=[self.fc5w, self.fc5b]
+            self.fc3l = tf.nn.bias_add(tf.matmul(self.fc2, self.fc3w), self.fc3b)
+            tf.summary.histogram("out_fc3w", self.fc3w)
+            tf.summary.histogram("out_fc3b", self.fc3b)
+            
+            self.retrained_parameters +=[self.fc3w, self.fc3b]
 
     def load_weights(self, weight_file, sess):
         weights = np.load(weight_file)
@@ -302,9 +277,13 @@ class vgg16:
         weights = np.load(weight_file)
         keys = sorted(weights.keys())
         print("Loading weights..")
+        a = 1
         for i, k in enumerate(keys):
             #print i, k, np.shape(weights[k])
+            #if a > 4:
+             #   break
             sess.run(self.retrained_parameters[i].assign(weights[k]))
+            a += 1
         print("Weights loaded")
         
 def getFileList(datapath):
@@ -370,10 +349,10 @@ if __name__ == '__main__':
     
     
 #    train_it = 100
-    num_epochs = 50
-    batch_size = 2
+    num_epochs = 1
+    batch_size = 20
     weights = {}
-    retr_layers = range(3,6)
+    retr_layers = range(1,4)
     
     
     edges = np.genfromtxt("edges.csv", dtype=np.int32)
@@ -425,7 +404,7 @@ if __name__ == '__main__':
             
             
             vgg.load_weights('vgg16_weights.npz', sess)
-            vgg.load_retrained_weights('fc_weights_1488558236.26.npz',sess)
+            vgg.load_retrained_weights('fc_weights_1488618536.3980818.npz',sess)
             
             ## Traininng ######################################################
             
@@ -456,10 +435,6 @@ if __name__ == '__main__':
                         print('Step %d: loss = %.2f (%f sec)' % (step, loss, duration))
                         writer.add_summary(summary_str, step)
                         
-                    #    gt = coords.reshape((1002, 3))
-                   #     pred = vgg.pred.eval(feed_dict={x: example, y:coords}).reshape((1002,3))
-#        
-#
 #                        ax = Axes3D(fig)
 #        
 #                        ax.scatter(gt[:,0], gt[:,1], gt[:,2],c='b')
@@ -486,8 +461,8 @@ if __name__ == '__main__':
                 coord.join(threads)
             gt = coords#.reshape((1002, 3))
             pred = vgg.pred.eval(feed_dict={x: example, y:coords})#.reshape((1002,3))
-            np.savetxt('gt_train.csv', gt)
-            np.savetxt('pred_train.csv', pred)
+            np.savetxt(fname+'gt_train.csv', gt)
+            np.savetxt(fname+'pred_train.csv', pred)
             #fig = plt.figure()  
             #ax = Axes3D(fig)
                 
@@ -541,8 +516,8 @@ if __name__ == '__main__':
 #                plt.figure()
             gt = coords_test#.reshape((1002, 3))
             pred = vgg.pred.eval(feed_dict={x: example_test, y:coords_test})#.reshape((1002,3))
-            np.savetxt('pred_test.csv', pred)
-            np.savetxt('gt_test.csv', gt)
+            np.savetxt(fname+'pred_test.csv', pred)
+            np.savetxt(fname+'gt_test.csv', gt)
 
 
 #            fig = plt.figure()

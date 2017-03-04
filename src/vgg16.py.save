@@ -1,4 +1,3 @@
-
 ########################################################################################
 # Davi Frossard, 2016                                                                  #
 # VGG16 implementation in TensorFlow                                                   #
@@ -370,8 +369,8 @@ if __name__ == '__main__':
     
     
 #    train_it = 100
-    num_epochs = 50
-    batch_size = 2
+    num_epochs = 1
+    batch_size = 20
     weights = {}
     retr_layers = range(3,6)
     
@@ -456,8 +455,8 @@ if __name__ == '__main__':
                         print('Step %d: loss = %.2f (%f sec)' % (step, loss, duration))
                         writer.add_summary(summary_str, step)
                         
-                    #    gt = coords.reshape((1002, 3))
-                   #     pred = vgg.pred.eval(feed_dict={x: example, y:coords}).reshape((1002,3))
+#                        gt = coords.reshape((1002, 3))
+#                        pred = vgg.pred.eval(feed_dict={x: example, y:coords}).reshape((1002,3))
 #        
 #
 #                        ax = Axes3D(fig)
@@ -484,10 +483,10 @@ if __name__ == '__main__':
                 # When done, ask the threads to stop.
                 coord.request_stop()
                 coord.join(threads)
-            gt = coords#.reshape((1002, 3))
-            pred = vgg.pred.eval(feed_dict={x: example, y:coords})#.reshape((1002,3))
-            np.savetxt('gt_train.csv', gt)
-            np.savetxt('pred_train.csv', pred)
+            gt = coords
+3.reshape((1002, 3))
+            pred = vgg.pred.eval(feed_dict={x: example, y:coords}))
+            np.savetxt('gt_tr.csv', gt)
             #fig = plt.figure()  
             #ax = Axes3D(fig)
                 
@@ -539,10 +538,10 @@ if __name__ == '__main__':
 #                print(costmy.eval(feed_dict={x: example_test, y:coords_test}))
 #                print(costmy1.eval(feed_dict={x: example_test, y:coords_test}))
 #                plt.figure()
-            gt = coords_test#.reshape((1002, 3))
+#            gt = coords_test.reshape((1002, 3))
             pred = vgg.pred.eval(feed_dict={x: example_test, y:coords_test})#.reshape((1002,3))
-            np.savetxt('pred_test.csv', pred)
-            np.savetxt('gt_test.csv', gt)
+            np.savetxt('pred_ts.csv', pred)
+            np.savetxt('gt_ts.csv', gt)
 
 
 #            fig = plt.figure()
