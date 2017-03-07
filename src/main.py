@@ -2,17 +2,12 @@ from vgg16_model import vgg16
 
 import tensorflow as tf
 import numpy as np
-#from scipy.misc import imread, imresize
-#from imagenet_classes import class_names
+
 import os
 from glob import glob1
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import dtypes
 import time
-#import matplotlib.pyplot as plt
-#from mpl_toolkits.mplot3d import Axes3D
-#from maxout import max_out
-
 
 
         
@@ -45,11 +40,11 @@ def input_pipeline(filenames, batch_size, num_epochs=None):
     example.set_shape([224, 224, 3])
     coords.set_shape((3006,))
     
-    image_batch, points_batch = batch_queue(example, coords)
+    image_batch, points_batch = batch_queue(example, coords, batch_size)
         
     return image_batch, points_batch 
 
-def batch_queue(examples, coords):
+def batch_queue(examples, coords, batch_size):
     
     min_after_dequeue = 1000
     capacity = min_after_dequeue + 3 * batch_size
@@ -75,30 +70,45 @@ def saveWeights(vgg, retrained_layers_list, fname, print_message = False):
     for l in retrained_layers_list:
         exec("weights['fc{}_W'] = vgg.fc{}w.eval()".format(l, l))
         exec("weights['fc{}_b'] = vgg.fc{}b.eval()".format(l, l))
-    np.savez('weights_fc_' + fname+'.npz', **weights)
+    full_name = 'weights/weights_fc_' + fname+'.npz'
+    np.savez(full_name, **weights)
     if print_message:
-        print('weights saved to {}.npz.'.format(fname))
+        print('weights saved to {}.npz.'.format(full_name))
 
 def runTest(data, cost, print_step=10):
     images = data[0]
     points = data[1]
     losses = []
-
+    
+    pred_arr = np.empty((10, 3007))
+    gt_arr = np.empty((10, 3006))
+    
+    
     coord2 = tf.train.Coordinator()
     threads2 = tf.train.start_queue_runners(coord=coord2, sess=sess)
     try:
         print("Testing..")
         step = 0
         while not coord2.should_stop():
+            
+            
             start_time = time.time()
             image_test, points_test = sess.run([images, points])
             test_loss = cost.eval(feed_dict={x: image_test, y:points_test})
             losses.append(test_loss)
-
+            
             duration = time.time() - start_time
             if step % print_step == 0:
                 print('Step %d: loss = %.2f (%.3f sec)' % (step, test_loss, duration))
+            
+            
+            if step < 10:
+                
+                gt_arr[step,:] = points_test
+                pred_arr[step,1:] = vgg.pred.eval(feed_dict={x: image_test, y:points_test})
+                pred_arr[step, 0] = test_loss
             step += 1
+        
     except tf.errors.OutOfRangeError:
         pass
         #print('Done testing -- epoch limit reached')
@@ -112,6 +122,9 @@ def runTest(data, cost, print_step=10):
     mean_loss = np.mean(losses)
     print("Mean testing loss: {}".format(mean_loss))
     
+    np.savetxt('results/pred_test'+fname+'.csv', pred_arr)
+    np.savetxt('results/gt_test'+fname+'.csv', gt_arr)
+    
     return mean_loss
     #gt = coords_test
     #pred = vgg.pred.eval(feed_dict={x: example_test, y:coords_test})
@@ -120,132 +133,133 @@ def runTest(data, cost, print_step=10):
             
 if __name__ == '__main__':
     
-    datapath = "../output2"
+    datapath = "../output"
     #params
-    learning_rate = 0.0004
+    learning_rate = 0.0001
     reg_constant = 0.02
     
     
 #    train_it = 100
-    num_epochs = 100
-    batch_size = 50
+    num_epochs = 1
+    batch_size = 10
     retrained_layers = range(1,4)
     
     #edges = np.genfromtxt("edges.csv", dtype=np.int32)
     #dist = np.genfromtxt("dist.csv")
         
     with tf.Graph().as_default():
-        with tf.device('/cpu:0'):
+      #  with tf.device('/cpu:0'):
 
-            _, filenames = getFileList(datapath)
-            # filenames = filenames[:70]
-            # Divide train/test 
-            n_train = int(round(len(filenames) * 0.9))
-            filenames_train = filenames[:n_train]
-            filenames_test = filenames[n_train:]
+        _, filenames = getFileList(datapath)
+#        filenames = [filenames[i] for i in np.random.choice(range(len(filenames)),30,replace=False)]
+        # Divide train/test 
+        n_train = int(round(len(filenames) * 0.9))
+        filenames_train = filenames[:n_train]
+        filenames_test = filenames[n_train:]
 
-            images_batch_train, points_batch_train = input_pipeline(filenames_train, batch_size, num_epochs=num_epochs)
-            images_batch_test, points_batch_test = input_pipeline(filenames_test,batch_size, num_epochs=1)
-
-
-            x = tf.placeholder(tf.float32, [None, 224, 224, 3])
-            y = tf.placeholder(tf.float32, [None, 3006])
-
-            writer = tf.summary.FileWriter("logs/", graph=tf.get_default_graph())
-
-            vgg = vgg16(x)
-
-            #Regularization term
-            vars   = tf.trainable_variables()
-            lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in vars if 'bias' not in v.name ])
-
-            #isometric_loss(vgg.pred, edges, dist)
-            cost_train = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred)))) + lossL2 * reg_constant
-            cost_test = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred))))
-
-            optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train)
-    #        optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.9, momentum=0.001).minimize(cost_train)
-
-            #Summary for cost
-            tf.summary.scalar("cost", cost_train)
-            summary_op = tf.contrib.deprecated.merge_all_summaries()
-
-            fname = str(time.time())#timestamp used for saved file names
+        images_batch_train, points_batch_train = input_pipeline(filenames_train, batch_size, num_epochs=num_epochs)
+        images_batch_test, points_batch_test = input_pipeline(filenames_test, batch_size=1, num_epochs=1)
 
 
+        x = tf.placeholder(tf.float32, [None, 224, 224, 3])
+        y = tf.placeholder(tf.float32, [None, 3006])
 
-            #config = tf.ConfigProto()
-            #config.gpu_options.allocator_type = 'BFC'
-            #with tf.Session(config = config) as sess:
+        writer = tf.summary.FileWriter("logs/", graph=tf.get_default_graph())
 
-            #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
-            #with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+        vgg = vgg16(x)
 
-            with tf.Session() as sess:
-                sess.run(tf.global_variables_initializer())
-                sess.run(tf.local_variables_initializer())
+        #Regularization term
+        vars   = tf.trainable_variables()
+        lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in vars if 'bias' not in v.name ])
+
+        #isometric_loss(vgg.pred, edges, dist)
+        cost_train = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred)))) + lossL2 * reg_constant
+        cost_test = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred))))
+
+        optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train)
+#        optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.9, momentum=0.001).minimize(cost_train)
+
+        #Summary for cost
+        tf.summary.scalar("cost", cost_test)
+        
+        summary_op = tf.merge_all_summaries()
+#        summary_op = tf.contrib.deprecated.merge_all_summaries()
+        
+        fname = str(time.time())#timestamp used for saved file names
 
 
-                vgg.load_weights('vgg16_weights.npz', sess)
-                vgg.load_retrained_weights('weights_fc_1488713338.61096.npz',sess)
 
-                ## Traininng ######################################################
-               
-                
-                coord = tf.train.Coordinator()
-                threads = tf.train.start_queue_runners(coord=coord, sess=sess)
-        #            sess.graph.finalize()
+        #config = tf.ConfigProto()
+        #config.gpu_options.allocator_type = 'BFC'
+        #with tf.Session(config = config) as sess:
 
-                try:
-                    step = 0
-                    train_start_time = time.time()
-                    epoch_step = int(n_train / batch_size)
-                    current_epoch = 0
-                    
-                    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)
-                    config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False, allow_soft_placement=False)
-                    with tf.device('/gpu:0',):
-                        while not coord.should_stop():
+        #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
+        #with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
 
-                            start_time = time.time()
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.local_variables_initializer())
 
-                            example, coords = sess.run([images_batch_train, points_batch_train])                                        
-                            duration = time.time() - start_time
 
-                            # Write the summaries and print an overview fairly often.
-                            if step % 5 == 0:
-        #                        # Update the events file.
-                                _, loss, summary_str = sess.run([optimizer, cost_test, summary_op], feed_dict={x: example, y:coords})
-                                # Print status to stdout.
-                                print('Step %d: loss = %.2f (%f sec)' % (step, loss, duration))
-                                writer.add_summary(summary_str, step)
-                            else:
-                                sess.run(optimizer, feed_dict={x: example, y:coords})
-                            step += 1
+            vgg.load_weights('weights/vgg16_weights.npz', sess)
+            vgg.load_retrained_weights('weights/weights_fc_1488818514.5.npz',sess)
 
-                            #Test if epoch ended
-                            if (step % epoch_step == 0):
-                                with tf.device('/cpu:0'):
-                                    print("----epoch {} ---------------".format(current_epoch))
-                                    saveWeights(vgg, retrained_layers, fname)
-                                    current_epoch += 1
+            ## Traininng ######################################################
+           
+            
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(coord=coord, sess=sess)
+    #            sess.graph.finalize()
 
-                except tf.errors.OutOfRangeError:
-                    print('Done training -- epoch limit reached\n Training time: {} sec'.format(time.time()-train_start_time))
-                finally:
-                    coord.request_stop()
-                    coord.join(threads)
+            try:
+                step = 0
+                train_start_time = time.time()
+                epoch_step = int(n_train / batch_size)
+                current_epoch = 1
+                epoch_start_time = time.time()
+                #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)
+                #config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False, allow_soft_placement=False)
+                #with tf.device('/gpu:0',):
+                while not coord.should_stop():
 
-                # Testing
-                runTest(data=[images_batch_test, points_batch_test],cost=cost_test, print_step=1)
+                    start_time = time.time()
 
+                    example, coords = sess.run([images_batch_train, points_batch_train])                                        
+                    duration = time.time() - start_time
+
+                    # Write the summaries and print an overview fairly often.
+                    if step % 10 == 0:
+#                        # Update the events file.
+                        _, loss, summary_str = sess.run([optimizer, cost_test, summary_op], feed_dict={x: example, y:coords})
+                        # Print status to stdout.
+                        print('Step %d: loss = %.2f (%f sec)' % (step, loss, duration))
+                        writer.add_summary(summary_str, step)
+                    else:
+                        sess.run(optimizer, feed_dict={x: example, y:coords})
+                    step += 1
+
+                    #Test if epoch ended
+                    if (step % epoch_step == 0):
+                        with tf.device('/cpu:0'):
+                            print("Time elapsed: {} min".format((time.time() - epoch_start_time)/60.0))
+                            print("----epoch {} ---------------".format(current_epoch))
+                            saveWeights(vgg, retrained_layers, fname, True)
+                            current_epoch += 1
+                            epoch_start_time = time.time()
+                    if step % 50 == 0:
+                        saveWeights(vgg, retrained_layers, fname, True)
+                        
+            except tf.errors.OutOfRangeError:
+                print('Done training -- epoch limit reached\n Training time: {} sec'.format(time.time()-train_start_time))
+            finally:
+                coord.request_stop()
+                coord.join(threads)
                 saveWeights(vgg, retrained_layers, fname, True)
+                # Testing
+            runTest(data=[images_batch_test, points_batch_test],cost=cost_test, print_step=10)
 
-                writer.close()
+            
 
-    #            fig = plt.figure()
-    #            ax = Axes3D(fig)
+            writer.close()
 
-    #            ax.scatter(gt[:,0], gt[:,1], gt[:,2],c='b')
-    #            ax.scatter(pred[:,0], gt[:,1], gt[:,2],c='r')
-    #            plt.show()    
+    

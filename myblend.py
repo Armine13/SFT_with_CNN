@@ -155,7 +155,7 @@ bpy.ops.xps_tools.convert_to_cycles_selected()
 #with Timer():
 
     
-iters = 5000    
+iters = 3000
 n_vert = len(obj.data.vertices)
 
 ptCloudArr = np.empty((iters, n_vert*3))
@@ -166,28 +166,20 @@ for i in np.arange(iters):
     randomRotateTranslate(obj, 3)
 
     # Save Image
-    bpy.context.scene.render.filepath = directory+'output2/{}_{:03}.png'.format(fname, i)
+    bpy.context.scene.render.filepath = directory+'output/{}_{:03}.png'.format(fname, i)
     #224x224
     bpy.context.scene.render.resolution_x = 448 
     bpy.context.scene.render.resolution_y = 448
     bpy.ops.render.render( write_still=True) 
     
     # Save point cloud to .csv
-    saveMeshAsCloud(obj, cam, directory+'output2/{}_{:03}.csv'.format(fname, i), False)
+    saveMeshAsCloud(obj, cam, directory+'output/{}_{:03}.csv'.format(fname, i), False)
 
     #Store point cloud in array
 #    ptCloudArr[i,:] = getCloud(obj)
 
 #Save pt array to file
 #np.savetxt(fname=directory+'output1/points_data.csv', X=ptCloudArr, delimiter=',')
-    
-    
-    
-    
-    
-    
-    
-    
     
     
 #    bpy.ops.export_scene.obj(filepath='/home/arvardaz/SFT_with_CNN/output/{}_{:03}.obj'.format(obj_name, i), use_selection = True)
