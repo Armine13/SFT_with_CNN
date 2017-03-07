@@ -70,7 +70,7 @@ def saveWeights(vgg, retrained_layers_list, fname, print_message = False):
     for l in retrained_layers_list:
         exec("weights['fc{}_W'] = vgg.fc{}w.eval()".format(l, l))
         exec("weights['fc{}_b'] = vgg.fc{}b.eval()".format(l, l))
-    full_name = 'weights/weights_fc_' + fname+'.npz'
+    full_name = 'weights/weights_fc_' + fname
     np.savez(full_name, **weights)
     if print_message:
         print('weights saved to {}.npz.'.format(full_name))
@@ -135,12 +135,12 @@ if __name__ == '__main__':
     
     datapath = "../output"
     #params
-    learning_rate = 0.0001
+    learning_rate = 0.0003
     reg_constant = 0.02
     
     
 #    train_it = 100
-    num_epochs = 1
+    num_epochs = 500
     batch_size = 10
     retrained_layers = range(1,4)
     
@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
 
             vgg.load_weights('weights/vgg16_weights.npz', sess)
-            vgg.load_retrained_weights('weights/weights_fc_1488818514.5.npz',sess)
+            vgg.load_retrained_weights('weights/weights_fc_1488882041.1.npz',sess)
 
             ## Traininng ######################################################
            
@@ -246,8 +246,8 @@ if __name__ == '__main__':
                             saveWeights(vgg, retrained_layers, fname, True)
                             current_epoch += 1
                             epoch_start_time = time.time()
-                    if step % 50 == 0:
-                        saveWeights(vgg, retrained_layers, fname, True)
+#                    if step % 100 == 0:
+#                        saveWeights(vgg, retrained_layers, fname, True)
                         
             except tf.errors.OutOfRangeError:
                 print('Done training -- epoch limit reached\n Training time: {} sec'.format(time.time()-train_start_time))

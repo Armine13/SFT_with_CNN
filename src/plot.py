@@ -22,27 +22,32 @@ def equal_axis(ax, X, Y, Z):
     ax.set_ylim(mid_y - max_range, mid_y + max_range)
     ax.set_zlim(mid_z - max_range, mid_z + max_range)
 
+def plot_results(pred_all, gt_all=None):
+    for i in range(gt_all.shape[0]):
+        
+        
+        loss = pred_all[i,0]
+        pred = pred_all[i,1:].reshape((1002,3))
+           
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        ax.set_aspect('equal')
 
-gt_all = np.genfromtxt('results/gt_test1488809562.44.csv')
-pred_all = np.genfromtxt('results/pred_test1488809562.44.csv')
+        if gt_all is not None:        
+            gt = gt_all[i].reshape((1002,3))
+            ax.scatter(gt[:,0], gt[:,1], gt[:,2],c='b')
+        
+        ax.scatter(pred[:,0], pred[:,1], pred[:,2],c='r')
+        ax.scatter(0, 0, 0, c='c', marker='o')
+        ax.set_title("RMSE = {}".format(loss))
+        
+        equal_axis(ax, pred[:,0], pred[:,1], pred[:,2])
+        
+        plt.show()
 
+
+if __name__ == '__main__':
+    gt_all = np.genfromtxt('results/gt_test1488882041.1.csv')
+    pred_all = np.genfromtxt('results/pred_test1488882041.1.csv')
     
-for i in range(gt_all.shape[0]):
-    
-    gt = gt_all[i].reshape((1002,3))
-    
-    loss = pred_all[i,0]
-    pred = pred_all[i,1:].reshape((1002,3))
-       
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    ax.set_aspect('equal')
-    
-    ax.scatter(gt[:,0], gt[:,1], gt[:,2],c='b')
-    ax.scatter(pred[:,0], pred[:,1], pred[:,2],c='r')
-    ax.scatter(0, 0, 0, c='c', marker='o')
-    ax.set_title("RMSE = {}".format(loss))
-    
-    equal_axis(ax, gt[:,0], gt[:,1], gt[:,2])
-    
-    plt.show()
+    plot_results(pred_all, gt_all)

@@ -23,7 +23,7 @@ def bulkResize(imageFolder, outPath, size):
 if __name__ == "__main__":
     imageFolder='./output/' # first arg is path to image folder
     outFolder = './output100x100/'
-    newsize = (100, 100)
+    newsize = (224, 224)
 
     if not os.path.exists(os.path.dirname(outFolder)):
         try:
