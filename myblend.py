@@ -5,6 +5,7 @@ import time
 from os import makedirs, path
 from shutil import rmtree
 import sys
+from glob import glob1
 from time import time
 #######################
 #!/usr/bin/python
@@ -95,6 +96,40 @@ def look_at(obj_camera, point):
     # assume ptCloudArrwe're using euler rotation
     obj_camera.rotation_euler = rot_quat.to_euler()
 
+def setBackgroundImage(image_path, obj, bpy):
+	mat_name = "myMaterial"
+	mat = (bpy.data.materials.get(mat_name) or
+		   bpy.data.materials.new(mat_name))
+
+	mat.use_nodes = True
+	nt = mat.node_tree
+	nodes = nt.nodes
+	links = nt.links
+
+	# clear
+	while(nodes): nodes.remove(nodes[0])
+
+	output  = nodes.new("ShaderNodeOutputMaterial")
+	diffuse = nodes.new("ShaderNodeBsdfDiffuse")
+	texture = nodes.new("ShaderNodeTexImage")
+	uvmap   = nodes.new("ShaderNodeUVMap")
+
+	texture.image = bpy.data.images.load(image_path)
+	uvmap.uv_map = "UV"
+
+	links.new( output.inputs['Surface'], diffuse.outputs['BSDF'])
+	links.new(diffuse.inputs['Color'],   texture.outputs['Color'])
+
+	obj.data.materials.append(mat)
+	obj.active_material = mat
+    
+	for area in bpy.context.screen.areas:
+		if area.type == 'VIEW_3D':
+			for region in area.regions:
+				if region.type == 'WINDOW':
+					override = {'area': area, 'region': region, 'edit_object': bpy.context.edit_object}
+					bpy.ops.uv.unwrap(override)
+                    
 class Timer(object):
     def __init__(self, name=None):
         self.name = name
@@ -111,24 +146,23 @@ class Timer(object):
 ###############################################################################
 
 directory = os.path.dirname(os.path.realpath(sys.argv[0])) + '/SFT_with_CNN/'
+bg_dir = directory + 'SBU-RwC90/mixed/'
 
+bg_list = glob1(bg_dir, '*.jpg')
 
 #directory = '/home/arvardaz/SFT_with_CNN/'
 
 ##Delete all existing objects from scene except Camera and Plane
 scene = bpy.context.scene
-for ob in scene.objects:
-    ob.select = True
-#    bpy.ops.object.track_clear(type='CLEAR')
-    if ob.name == "Camera" or ob.name == 'Plane':
-        ob.select = False
-#        bpy.ops.object.track_clear(type='CLEAR')
-bpy.ops.object.delete()
+#for ob in scene.objects:
+#    ob.select = True
+#    if ob.name == "Camera" or ob.name == 'Plane':
+#        ob.select = False
+#bpy.ops.object.delete()
 
 
 #Import object
-bpy.ops.import_scene.obj(filepath = directory + '3D_models/American_pillow/3d_decimated_norm/pillow_2k.obj')
-#bpy.ops.import_scene.obj(filepath='/home/arvardaz/SFT_with_CNN/3D_models/big_ball/3d_decimated/big_ball_2k.obj')
+bpy.ops.import_scene.obj(filepath = directory + '3D_models/American_pillow/3d_decimated/pillow_2k.obj')
 
 #Find object in scene
 scene = bpy.context.scene
@@ -141,9 +175,14 @@ obj = bpy.data.objects[obj_name]
 bpy.ops.object.select_all(action='DESELECT')
 obj.select = True
 
+#Center the origin of object
+bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS')
+obj.location = mathutils.Vector((0,0,0))
+
+
 #Camera object
 cam = bpy.data.objects["Camera"]
-
+cam.location = mathutils.Vector((0, 10, 0))
 #Import texture
 bpy.ops.xps_tools.convert_to_cycles_selected()
 
@@ -154,8 +193,16 @@ bpy.ops.xps_tools.convert_to_cycles_selected()
 
 #with Timer():
 
+bg_plane = bpy.data.objects[4]
     
-iters = 3000
+    
+#override = {'selected_bases': [bpy.context.object,]} 
+#bpy.ops.object.delete(override) 
+
+               
+
+
+iters = 2
 n_vert = len(obj.data.vertices)
 
 ptCloudArr = np.empty((iters, n_vert*3))
@@ -163,17 +210,21 @@ ptCloudArr = np.empty((iters, n_vert*3))
 fname = str(time()) #obj_name + 
 for i in np.arange(iters):
     # Assign random poses to object
-    randomRotateTranslate(obj, 3)
+    randomRotateTranslate(obj, 1)
+
+    #select and load background image
+    im_idx = np.random.choice(len(bg_list))
+    setBackgroundImage(bg_dir + bg_list[im_idx], bg_plane, bpy)
 
     # Save Image
-    bpy.context.scene.render.filepath = directory+'output/{}_{:03}.png'.format(fname, i)
+    bpy.context.scene.render.filepath = directory+'output2/{}_{:03}.png'.format(fname, i)
     #224x224
     bpy.context.scene.render.resolution_x = 448 
     bpy.context.scene.render.resolution_y = 448
     bpy.ops.render.render( write_still=True) 
     
     # Save point cloud to .csv
-    saveMeshAsCloud(obj, cam, directory+'output/{}_{:03}.csv'.format(fname, i), False)
+    saveMeshAsCloud(obj, cam, directory+'output2/{}_{:03}.csv'.format(fname, i), False)
 
     #Store point cloud in array
 #    ptCloudArr[i,:] = getCloud(obj)
@@ -203,3 +254,7 @@ for i in np.arange(iters):
 ##    if ob.name == "Camera" or ob.name == 'Lamp':
 #    ob.select = False
 
+
+
+#change focal length
+#bpy.data.cameras['Camera'].lens = plt.hist(6.7 * np.random.randn() + 35)
