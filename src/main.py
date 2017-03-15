@@ -30,7 +30,7 @@ def read_files(filename_queue):
     example = tf.image.decode_png(im_cont, channels=3)
     return example, coords
 
-def input_pipeline(filenames, batch_size, num_epochs=None):
+def input_pipeline(filenames, batch_size, num_epochs=None, read_threads=1):
     filenames_tensor = ops.convert_to_tensor(filenames, dtype=dtypes.string)
     filename_queue = tf.train.string_input_producer(filenames_tensor,num_epochs=num_epochs, shuffle=False)
 
@@ -40,18 +40,19 @@ def input_pipeline(filenames, batch_size, num_epochs=None):
     example.set_shape([224, 224, 3])
     coords.set_shape((3006,))
     
-    image_batch, points_batch = batch_queue(example, coords, batch_size)
-        
-    return image_batch, points_batch 
-
-def batch_queue(examples, coords, batch_size):
-    
     min_after_dequeue = 1000
     capacity = min_after_dequeue + 3 * batch_size
     
-    example_batch, coords_batch = tf.train.shuffle_batch( [examples, coords], batch_size=batch_size, capacity=capacity,
+    data_list=[(im, pts) for im, pts in [read_files(filename_queue) for _ in range(read_threads)]]
+    
+    [(im.set_shape([224, 224, 3]), pt.set_shape((3006,))) for (im,pt) in data_list]
+    
+    image_batch, points_batch = tf.train.shuffle_batch_join( data_list, batch_size=batch_size, capacity=capacity,
             min_after_dequeue=min_after_dequeue)   
-    return example_batch, coords_batch
+
+    return image_batch, points_batch
+
+
     
 def isometric_loss(pred, edges, dist):
     pred = tf.reshape(pred, (1002, 3))
@@ -124,6 +125,7 @@ def runTest(data, cost, print_step=10):
     
     np.savetxt('results/pred_test'+fname+'.csv', pred_arr)
     np.savetxt('results/gt_test'+fname+'.csv', gt_arr)
+    print("Results saved to {} and {}".format('results/pred_test'+fname+'.csv','results/gt_test'+fname+'.csv'))
     
     return mean_loss
     #gt = coords_test
@@ -133,14 +135,14 @@ def runTest(data, cost, print_step=10):
             
 if __name__ == '__main__':
     
-    datapath = "../output1"
+    datapath = "../output"
     #params
-    learning_rate = 0.001
+    learning_rate = 0.0003
     reg_constant = 0.02
     
     
 #    train_it = 100
-    num_epochs = 500
+    num_epochs = 100
     batch_size = 10
     retrained_layers = range(1,4)
     
@@ -153,14 +155,15 @@ if __name__ == '__main__':
       #  with tf.device('/cpu:0'):
 
         _, filenames = getFileList(datapath)
-#        filenames = [filenames[i] for i in np.random.choice(range(len(filenames)),30,replace=False)]
+        
+        
         # Divide train/test 
         n_train = int(round(len(filenames) * 0.9))
         filenames_train = filenames[:n_train]
         filenames_test = filenames[n_train:]
 
-        images_batch_train, points_batch_train = input_pipeline(filenames_train, batch_size, num_epochs=num_epochs)
-        images_batch_test, points_batch_test = input_pipeline(filenames_test, batch_size=1, num_epochs=1)
+        images_batch_train, points_batch_train = input_pipeline(filenames_train, batch_size, num_epochs=num_epochs, read_threads=1)
+        images_batch_test, points_batch_test = input_pipeline(filenames_test, batch_size=1, num_epochs=1, read_threads=1)
 
 
         x = tf.placeholder(tf.float32, [None, 224, 224, 3])
@@ -179,6 +182,7 @@ if __name__ == '__main__':
         cost_test = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred))))
 
         optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train)
+#        optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost_train)
 #        optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.9, momentum=0.001).minimize(cost_train)
 
         #Summary for cost
@@ -204,7 +208,11 @@ if __name__ == '__main__':
 
 
             vgg.load_weights('weights/vgg16_weights.npz', sess)
-            vgg.load_retrained_weights('weights/weights_trained_on_dec1.npz',sess)
+            vgg.load_retrained_weights('weights/weights_trained_on_dec_norm_v1.npz',sess)
+            
+#            vgg.load_retrained_weights('weights/weights_fc_1489169964.99.npz', sess)            
+
+#            vgg.load_retrained_weights('weights/weights_fc_1489495674.53.npz',sess)
 
             ## Traininng ######################################################
            
@@ -233,6 +241,7 @@ if __name__ == '__main__':
                         if step % 10 == 0:
     #                        # Update the events file.
                             _, loss, summary_str = sess.run([optimizer, cost_test, summary_op], feed_dict={x: example, y:coords})
+#                            _, loss = sess.run([optimizer, cost_test], feed_dict={x: example, y:coords})
                             # Print status to stdout.
                             print('Step %d: loss = %.2f (%f sec)' % (step, loss, duration))
                             writer.add_summary(summary_str, step)
@@ -248,21 +257,19 @@ if __name__ == '__main__':
                                 saveWeights(vgg, retrained_layers, fname, True)
                                 current_epoch += 1
                                 epoch_start_time = time.time()
-    #                    if step % 100 == 0:
-    #                        saveWeights(vgg, retrained_layers, fname, True)
+
                             
                 except tf.errors.OutOfRangeError:
-                    print('Done training -- epoch limit reached\n Training time: {} sec'.format(time.time()-train_start_time))
+                    print('Done training -- epoch limit reached\n Training time: {} min'.format((time.time()-train_start_time)/60))
                 finally:
                     coord.request_stop()
                     coord.join(threads)
                     saveWeights(vgg, retrained_layers, fname, True)
+                    writer.close()
                     # Testing
             if test:
                 runTest(data=[images_batch_test, points_batch_test],cost=cost_test, print_step=10)
 
-            
-
-            writer.close()
+   
 
     

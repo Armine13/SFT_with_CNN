@@ -47,7 +47,7 @@ def plot_results(pred_all, gt_all=None):
 
 
 if __name__ == '__main__':
-    gt_all = np.genfromtxt('results/gt_test1489073893.7.csv')
-    pred_all = np.genfromtxt('results/pred_test1489073893.7.csv')
+    gt_all = np.genfromtxt('results/gt_test1489592797.67.csv')
+    pred_all = np.genfromtxt('results/pred_test1489592797.67.csv')
     
     plot_results(pred_all, gt_all)

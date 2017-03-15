@@ -223,8 +223,8 @@ class vgg16:
             pool5_flat = tf.reshape(self.pool5, [-1, shape])
             fc1l = tf.nn.bias_add(tf.matmul(pool5_flat, self.fc1w), self.fc1b)
             
-            tf.summary.histogram("out_fc1w", self.fc1w)
-            tf.summary.histogram("out_fc1b", self.fc1b)
+#            tf.summary.histogram("out_fc1w", self.fc1w)
+#            tf.summary.histogram("out_fc1b", self.fc1b)
             
             self.fc1 = tf.nn.relu(fc1l)
             #self.parameters += [self.fc1w, self.fc1b]
@@ -240,8 +240,8 @@ class vgg16:
                                  trainable=True, name='biases')
             fc2l = tf.nn.bias_add(tf.matmul(self.fc1, self.fc2w), self.fc2b)
             
-            tf.summary.histogram("out_fc2w", self.fc2w)
-            tf.summary.histogram("out_fc2b", self.fc2b)
+#            tf.summary.histogram("out_fc2w", self.fc2w)
+#            tf.summary.histogram("out_fc2b", self.fc2b)
             
             
             self.fc2 = tf.nn.relu(fc2l)
@@ -256,8 +256,8 @@ class vgg16:
             self.fc3b = tf.Variable(tf.constant(0, shape=[3006], dtype=tf.float32),
                                trainable=True, name='biases')
             self.fc3l = tf.nn.bias_add(tf.matmul(self.fc2, self.fc3w), self.fc3b)
-            tf.summary.histogram("out_fc3w", self.fc3w)
-            tf.summary.histogram("out_fc3b", self.fc3b)
+#            tf.summary.histogram("out_fc3w", self.fc3w)
+#            tf.summary.histogram("out_fc3b", self.fc3b)
             
             self.retrained_parameters +=[self.fc3w, self.fc3b]
 

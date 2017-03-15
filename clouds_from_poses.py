@@ -34,14 +34,12 @@ dr = '/home/arvardaz/SFT_with_CNN/american_pillow_gt/'
 cam_tags = read_xml(dr+'PSCamera.xml')
 i = 0
 for cam_tag in cam_tags:
-#    cam_tag = cam_tags[7]
-#    if i < 20:
-#        i +=1
-#    else:
-#        break
+    if '0448' not in cam_tag['label']:
+        continue
     
     if cam_tag['id'] == '50':
         continue
+    
     
     name = cam_tag['label']
     
@@ -62,7 +60,7 @@ for cam_tag in cam_tags:
     
     p_cam = np.matmul(RT_inv, Ph.transpose()).transpose()
     
-    np.savetxt(dr+name[:-4]+'.csv', p_cam.flatten())
+#    np.savetxt(dr+name[:-4]+'.csv', p_cam.flatten())
         
 #    fig = plt.figure()
 #    ax = fig.gca(projection='3d')
