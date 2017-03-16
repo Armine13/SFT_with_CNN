@@ -81,12 +81,19 @@ def runTest(data, cost, print_step=10):
     points = data[1]
     losses = []
     
-    pred_arr = np.empty((10, 3007))
-    gt_arr = np.empty((10, 3006))
-    
+#    pred_arr = np.empty((10, 3007))
+#    gt_arr = np.empty((10, 3006))
     
     coord2 = tf.train.Coordinator()
     threads2 = tf.train.start_queue_runners(coord=coord2, sess=sess)
+    
+    n_saved = 20
+    
+    data = {}
+    data['pred'] = np.empty((n_saved, 3007))
+    data['gt'] = np.empty((n_saved, 3006))
+    data['image'] = np.empty((n_saved, 224, 224, 3))
+    
     try:
         print("Testing..")
         step = 0
@@ -103,12 +110,15 @@ def runTest(data, cost, print_step=10):
                 print('Step %d: loss = %.2f (%.3f sec)' % (step, test_loss, duration))
             
             
-            if step < 10:
+            if step < n_saved:
                 
-                gt_arr[step,:] = points_test
-                pred_arr[step,1:] = vgg.pred.eval(feed_dict={x: image_test, y:points_test})
-                pred_arr[step, 0] = test_loss
+                data['gt'][step,:] = points_test
+                data['pred'][step,1:] = vgg.pred.eval(feed_dict={x: image_test, y:points_test})
+                data['pred'][step, 0] = test_loss
+                data['image'][step] = image_test
+            
             step += 1
+            
         
     except tf.errors.OutOfRangeError:
         pass
@@ -123,9 +133,9 @@ def runTest(data, cost, print_step=10):
     mean_loss = np.mean(losses)
     print("Mean testing loss: {}".format(mean_loss))
     
-    np.savetxt('results/pred_test'+fname+'.csv', pred_arr)
-    np.savetxt('results/gt_test'+fname+'.csv', gt_arr)
-    print("Results saved to {} and {}".format('results/pred_test'+fname+'.csv','results/gt_test'+fname+'.csv'))
+#    np.savetxt('results/test'+fname+'.csv', data)
+    np.savez('results/test'+fname+'.npz', **data)
+    print("Results saved to {}.".format('results/test'+fname+'.npz'))
     
     return mean_loss
     #gt = coords_test
@@ -137,8 +147,8 @@ if __name__ == '__main__':
     
     datapath = "../output"
     #params
-    learning_rate = 0.0003
-    reg_constant = 0.02
+    learning_rate = 0.0002
+    reg_constant = 0.025
     
     
 #    train_it = 100
@@ -148,8 +158,7 @@ if __name__ == '__main__':
     
     train = True
     test = True
-    #edges = np.genfromtxt("edges.csv", dtype=np.int32)
-    #dist = np.genfromtxt("dist.csv")
+
         
     with tf.Graph().as_default():
       #  with tf.device('/cpu:0'):
@@ -182,7 +191,7 @@ if __name__ == '__main__':
         cost_test = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred))))
 
         optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train)
-#        optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost_train)
+        
 #        optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.9, momentum=0.001).minimize(cost_train)
 
         #Summary for cost
@@ -208,7 +217,8 @@ if __name__ == '__main__':
 
 
             vgg.load_weights('weights/vgg16_weights.npz', sess)
-            vgg.load_retrained_weights('weights/weights_trained_on_dec_norm_v1.npz',sess)
+            vgg.load_retrained_weights('weights/weights_trained_on_dec_norm_v3.npz',sess)
+#            vgg.load_retrained_weights('weights/weights_trained_on_dec_norm_v2.npz',sess)
             
 #            vgg.load_retrained_weights('weights/weights_fc_1489169964.99.npz', sess)            
 

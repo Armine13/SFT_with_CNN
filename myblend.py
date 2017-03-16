@@ -180,14 +180,14 @@ bpy.ops.xps_tools.convert_to_cycles_selected()
 
 ###############################################################################
 
- # Clear directory 'output'
-if path.exists(directory+ 'output2'):
-    rmtree(directory + 'output2')
-    makedirs(directory + 'output2')
+##  Clear directory 'output3'
+#if path.exists(directory+ 'output3'):
+#    rmtree(directory + 'output3')
+#    makedirs(directory + 'output3')
 
 
 ## Loop #######################################################################
-iters = 3
+iters = 1
 bg_plane = bpy.data.objects['Plane.001']
 n_vert = len(obj.data.vertices)
 ptCloudArr = np.empty((iters, n_vert*3))
@@ -215,14 +215,14 @@ for i in np.arange(iters):
     setBackgroundImage(bg_dir + bg_list[im_idx], bg_plane)
 
     # Save Image
-    bpy.context.scene.render.filepath = directory+'output2/{}_{:03}.png'.format(fname, i)
+    bpy.context.scene.render.filepath = directory+'output3/{}_{:03}.png'.format(fname, i)
     #224x224
     bpy.context.scene.render.resolution_x = 448 
     bpy.context.scene.render.resolution_y = 448
     bpy.ops.render.render( write_still=True) 
     
     # Save point cloud to .csv
-    saveMeshAsCloud(obj, cam, directory+'output2/{}_{:03}.csv'.format(fname, i))
+    saveMeshAsCloud(obj, cam, directory+'output3/{}_{:03}.csv'.format(fname, i))
 
 
 
