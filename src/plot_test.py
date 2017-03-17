@@ -13,6 +13,7 @@ import numpy as np
 
 def projImage(points):
     K_blender = np.array([[245.0000,   0.0000, 112.0000],[0.0000, 435.5555419921875, 112.0000],[0.0000,   0.0000,   1.0000]])
+#    K_blender = np.array([[490.0000,   0.0000, 224.0000],[0.0000, 871.1111, 224.0000],[0.0000,   0.0000,   1.0000]])
     
     im0 = points[:,:3] / np.repeat(points[:,2].reshape(1002,1),3,axis=1)
     im = np.matmul(K_blender, im0.transpose()).transpose()     
@@ -37,7 +38,12 @@ def plot_results(pred, gt, im, loss=None, iso_loss=None):
     ax = fig.add_subplot(1, 2, 1)                    
     ax.imshow(im)
     im = projImage(gt)
+    ax.plot(im[:,0], im[:,1], 'bx')
+    im = projImage(pred)
     ax.plot(im[:,0], im[:,1], 'rx')
+    
+#    ax.set_xlim([0,224])
+#    ax.set_ylim([0,224])
 #    ax.set_title("id: {}".format(i))                                        
 
     # Second subplot
@@ -66,7 +72,7 @@ if __name__ == '__main__':
     cum_e = 0
     cum_il = 0
 #    for i in range(n):
-    for i in range(5):
+    for i in range(n):
         loss = data['pred'][i,0]
         pred = data['pred'][i,1:].reshape((1002,3))
         gt = data['gt'][i].reshape((1002,3))
@@ -80,7 +86,7 @@ if __name__ == '__main__':
         cum_il += iso_loss
         
         plot_results(pred, gt, im, loss, iso_loss)
-        print("{}. RMSE={} mean_iso_loss={}".format(i, loss, iso_loss))
+        print("{}. RMSE={} mean_iso_loss={} ({:.3}%)".format(i, loss, iso_loss, iso_loss*100/np.mean(synth_gt_dist)))
     print("Mean RMSE : {}".format(cum_e*1.0/(i+1)))        
     print("Mean GT edge length = {}".format(np.mean(synth_gt_dist)))
     print("Mean predicted edge length = {}".format(np.mean(pred_dist)))

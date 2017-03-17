@@ -17,12 +17,13 @@ def getFileList(datapath):
     file_list_png = [os.path.join(datapath, fname[:-3] + 'png') for fname in file_names_csv] #remove extension
     return (file_list_png, file_list_csv)
 
-def read_files(filename_queue):
+def read_files(path, filename_queue):
     textReader = tf.TextLineReader()
     _, csv_content = textReader.read(filename_queue)    
     record_defaults = [tf.constant([], dtype=tf.string)] + [tf.constant([], dtype=tf.float32)]*3006
     all_data = tf.decode_csv(csv_content, record_defaults=record_defaults, field_delim=",")
 
+#    im_name = tf.string_join([path, all_data[0]],"/")
     im_name = all_data[0]
     coords = tf.pack(all_data[1:])
     
@@ -30,20 +31,15 @@ def read_files(filename_queue):
     example = tf.image.decode_png(im_cont, channels=3)
     return example, coords
 
-def input_pipeline(filenames, batch_size, num_epochs=None, read_threads=1):
+def input_pipeline(path, filenames, batch_size, num_epochs=None, read_threads=1):
     filenames_tensor = ops.convert_to_tensor(filenames, dtype=dtypes.string)
     filename_queue = tf.train.string_input_producer(filenames_tensor,num_epochs=num_epochs, shuffle=False)
 
-    example, coords = read_files(filename_queue)    
-    
-    #define tensor shape       
-    example.set_shape([224, 224, 3])
-    coords.set_shape((3006,))
     
     min_after_dequeue = 1000
     capacity = min_after_dequeue + 3 * batch_size
     
-    data_list=[(im, pts) for im, pts in [read_files(filename_queue) for _ in range(read_threads)]]
+    data_list=[(im, pts) for im, pts in [read_files(path,filename_queue) for _ in range(read_threads)]]
     
     [(im.set_shape([224, 224, 3]), pt.set_shape((3006,))) for (im,pt) in data_list]
     
@@ -145,15 +141,17 @@ def runTest(data, cost, print_step=10):
             
 if __name__ == '__main__':
     
-    datapath = "../output"
+    datapath = "../output3"
     #params
-    learning_rate = 0.0002
-    reg_constant = 0.025
+#    learning_rate = 0.0001
+    reg_constant = 0.03
     
     
 #    train_it = 100
-    num_epochs = 100
+    num_epochs = 1000
     batch_size = 10
+    
+    
     retrained_layers = range(1,4)
     
     train = True
@@ -167,17 +165,25 @@ if __name__ == '__main__':
         
         
         # Divide train/test 
-        n_train = int(round(len(filenames) * 0.9))
-        filenames_train = filenames[:n_train]
-        filenames_test = filenames[n_train:]
+        train_size = int(round(len(filenames) * 0.9))
+        filenames_train = filenames[:train_size]
+        filenames_test = filenames[train_size:]
 
-        images_batch_train, points_batch_train = input_pipeline(filenames_train, batch_size, num_epochs=num_epochs, read_threads=1)
-        images_batch_test, points_batch_test = input_pipeline(filenames_test, batch_size=1, num_epochs=1, read_threads=1)
+        images_batch_train, points_batch_train = input_pipeline(datapath, filenames_train, batch_size, num_epochs=num_epochs, read_threads=1)
+        images_batch_test, points_batch_test = input_pipeline(datapath, filenames_test, batch_size=1, num_epochs=1, read_threads=1)
 
 
         x = tf.placeholder(tf.float32, [None, 224, 224, 3])
         y = tf.placeholder(tf.float32, [None, 3006])
-
+        
+        batch = tf.Variable(0)
+        learning_rate = tf.train.exponential_decay(
+          0.0003,                # Base learning rate.
+          batch * batch_size,  # Current index into the dataset.
+          train_size,          # Decay step.
+          0.95,                # Decay rate.
+          staircase=True)
+        
         writer = tf.summary.FileWriter("logs/", graph=tf.get_default_graph())
 
         vgg = vgg16(x)
@@ -190,7 +196,7 @@ if __name__ == '__main__':
         cost_train = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred)))) + lossL2 * reg_constant
         cost_test = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred))))
 
-        optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train)
+        optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train, global_step=batch)
         
 #        optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.9, momentum=0.001).minimize(cost_train)
 
@@ -217,7 +223,7 @@ if __name__ == '__main__':
 
 
             vgg.load_weights('weights/vgg16_weights.npz', sess)
-            vgg.load_retrained_weights('weights/weights_trained_on_dec_norm_v3.npz',sess)
+            vgg.load_retrained_weights('weights/weights_fc_1489763677.84.npz',sess)
 #            vgg.load_retrained_weights('weights/weights_trained_on_dec_norm_v2.npz',sess)
             
 #            vgg.load_retrained_weights('weights/weights_fc_1489169964.99.npz', sess)            

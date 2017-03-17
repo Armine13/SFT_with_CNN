@@ -27,17 +27,17 @@ def randomRotateTranslate(meshObj, std):
     obj.location = Vector((obj_x, obj_y, obj_z))
 
 def saveEdgesLen(meshObj, points):
-    faces = np.empty((len(meshObj.data.polygons), 3), dtype=int)
-    for i, f in enumerate(meshObj.data.polygons):
-        faces[i, :] = np.asarray(f.vertices)
-      
-    edges = np.vstack((faces[:,:2], faces[:,1:], faces[:,[0,2]]))
-    edges = np.sort(edges, 1)
-    edges = np.vstack({tuple(row) for row in edges})
-        
-    dist = np.zeros(len(edges))
+faces = np.empty((len(meshObj.data.polygons), 3), dtype=int)
+for i, f in enumerate(meshObj.data.polygons):
+    faces[i, :] = np.asarray(f.vertices)
+  
+edges = np.vstack((faces[:,:2], faces[:,1:], faces[:,[0,2]]))
+edges = np.sort(edges, 1)
+edges = np.vstack({tuple(row) for row in edges})
     
-    dist = np.sqrt(np.sum(np.square(points[edges[:,0]] - points[edges[:,1]]),1))
+dist = np.zeros(len(edges))
+
+dist = np.sqrt(np.sum(np.square(points[edges[:,0]] - points[edges[:,1]]),1))
     
     np.savetxt("edges.csv", edges)
     np.savetxt("dist.csv", dist)

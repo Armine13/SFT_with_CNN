@@ -68,7 +68,7 @@ def plot_results(pred, gt, im, loss=None, iso_loss=None):
 
 if __name__ == '__main__':
     
-    dr = '/home/arvardaz/SFT_with_CNN/output3/'
+    dr = '/home/arvardaz/SFT_with_CNN/american_pillow_gt/'
     K = np.array([[1887.3979937413362, 0, 1187.4168448401772],[0,1887.3979937413362,807.75879695084984],[0,0,1]])
     
     edges = np.genfromtxt("edges_real_gt.csv", dtype=np.int32)
@@ -98,6 +98,8 @@ if __name__ == '__main__':
                 img = imresize(img, (224, 224))
             
                 pred = sess.run(vgg.pred, feed_dict={vgg.imgs: [img]})
+                pred *= 0.21504465413752796
+                
                 pred.resize((1002, 3))
                 if pred[0,2] < 0:
                     pred[:,1] = -pred[:,1]
