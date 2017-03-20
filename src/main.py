@@ -23,8 +23,9 @@ def read_files(path, filename_queue):
     record_defaults = [tf.constant([], dtype=tf.string)] + [tf.constant([], dtype=tf.float32)]*3006
     all_data = tf.decode_csv(csv_content, record_defaults=record_defaults, field_delim=",")
 
-#    im_name = tf.string_join([path, all_data[0]],"/")
-    im_name = all_data[0]
+
+    im_name = tf.string_join([path, all_data[0]],"/")
+#    im_name = all_data[0]
     coords = tf.pack(all_data[1:])
     
     im_cont = tf.read_file(im_name)
@@ -141,28 +142,31 @@ def runTest(data, cost, print_step=10):
             
 if __name__ == '__main__':
     
-    datapath = "../output3"
+    datapath = "../datasets/dataset_rt+fl"
+
     #params
-#    learning_rate = 0.0001
+
+    #Base learning rate
+    lr = 0.0002
     reg_constant = 0.03
     
     
 #    train_it = 100
-    num_epochs = 1000
+    num_epochs = 1
     batch_size = 10
     
     
+    train = True
+    test = False
+    
     retrained_layers = range(1,4)
     
-    train = True
-    test = True
-
         
     with tf.Graph().as_default():
       #  with tf.device('/cpu:0'):
 
         _, filenames = getFileList(datapath)
-        
+        filenames = filenames[:100]
         
         # Divide train/test 
         train_size = int(round(len(filenames) * 0.9))
@@ -176,13 +180,7 @@ if __name__ == '__main__':
         x = tf.placeholder(tf.float32, [None, 224, 224, 3])
         y = tf.placeholder(tf.float32, [None, 3006])
         
-        batch = tf.Variable(0)
-        learning_rate = tf.train.exponential_decay(
-          0.0003,                # Base learning rate.
-          batch * batch_size,  # Current index into the dataset.
-          train_size,          # Decay step.
-          0.95,                # Decay rate.
-          staircase=True)
+        
         
         writer = tf.summary.FileWriter("logs/", graph=tf.get_default_graph())
 
@@ -196,9 +194,16 @@ if __name__ == '__main__':
         cost_train = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred)))) + lossL2 * reg_constant
         cost_test = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred))))
 
+        batch = tf.Variable(0)
+        learning_rate = tf.train.exponential_decay(
+          lr,                # Base learning rate.
+          batch * batch_size,  # Current index into the dataset.
+          train_size,          # Decay step.
+          0.95,                # Decay rate.
+          staircase=True)
+        
         optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train, global_step=batch)
         
-#        optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.9, momentum=0.001).minimize(cost_train)
 
         #Summary for cost
         tf.summary.scalar("cost", cost_test)
@@ -240,7 +245,7 @@ if __name__ == '__main__':
                 try:
                     step = 0
                     train_start_time = time.time()
-                    epoch_step = int(n_train / batch_size)
+                    epoch_step = int(train_size / batch_size)
                     current_epoch = 1
                     epoch_start_time = time.time()
                     #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)

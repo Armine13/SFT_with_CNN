@@ -27,18 +27,18 @@ def randomRotateTranslate(meshObj, std):
     obj.location = Vector((obj_x, obj_y, obj_z))
 
 def saveEdgesLen(meshObj, points):
-faces = np.empty((len(meshObj.data.polygons), 3), dtype=int)
-for i, f in enumerate(meshObj.data.polygons):
-    faces[i, :] = np.asarray(f.vertices)
-  
-edges = np.vstack((faces[:,:2], faces[:,1:], faces[:,[0,2]]))
-edges = np.sort(edges, 1)
-edges = np.vstack({tuple(row) for row in edges})
+    faces = np.empty((len(meshObj.data.polygons), 3), dtype=int)
+    for i, f in enumerate(meshObj.data.polygons):
+        faces[i, :] = np.asarray(f.vertices)
+      
+    edges = np.vstack((faces[:,:2], faces[:,1:], faces[:,[0,2]]))
+    edges = np.sort(edges, 1)
+    edges = np.vstack({tuple(row) for row in edges})
+        
+    dist = np.zeros(len(edges))
     
-dist = np.zeros(len(edges))
-
-dist = np.sqrt(np.sum(np.square(points[edges[:,0]] - points[edges[:,1]]),1))
-    
+    dist = np.sqrt(np.sum(np.square(points[edges[:,0]] - points[edges[:,1]]),1))
+        
     np.savetxt("edges.csv", edges)
     np.savetxt("dist.csv", dist)
     
@@ -92,23 +92,14 @@ def look_at(obj_camera, point):
     # assume ptCloudArrwe're using euler rotation
     obj_camera.rotation_euler = rot_quat.to_euler()
 
-class Timer(object):
-    def __init__(self, name=None):
-        self.name = name
-
-    def __enter__(self):
-        self.tstart = time.time()
-
-    def __exit__(self, type, value, traceback):
-        if self.name:
-            print('[%s]' % self.name)
-        print('Elapsed: %s' % (time.time() - self.tstart))
-
+def randomFocalLength(camObj, mu, std):
+    #change focal length
+    camObj.lens = std * np.random.randn() + mu
 
 ###############################################################################
 
 directory = os.path.dirname(os.path.realpath(sys.argv[0])) + '/SFT_with_CNN/'
-
+outdir = directory + 'dataset_rt+fl/'
 
 #directory = '/home/arvardaz/SFT_with_CNN/'
 
@@ -122,8 +113,12 @@ for ob in scene.objects:
 #        bpy.ops.object.track_clear(type='CLEAR')
 bpy.ops.object.delete()
 
+## Camera object ##############################################################
+cam = bpy.data.objects["Camera"]
+cam.location = Vector((0, 40, 0))
+look_at(cam, Vector((0,0,0)))
 
-#Import object
+## Import object ##############################################################
 bpy.ops.import_scene.obj(filepath = directory + '3D_models/American_pillow/3d_decimated_norm/pillow_2k.obj')
 
 
@@ -133,24 +128,27 @@ for ob in scene.objects:
     if not('Camera' in ob.name or 'Plane' in ob.name):
         obj_name = ob.name
 obj = bpy.data.objects[obj_name]
-
+#
 #Select object
 bpy.ops.object.select_all(action='DESELECT')
 obj.select = True
-
-#Camera object
-cam = bpy.data.objects["Camera"]
-
+#Center the origin of object
+bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS')
+# set object frame to world frame
+obj.matrix_world.identity()
 #Import texture
 bpy.ops.xps_tools.convert_to_cycles_selected()
 
-#  Clear directory 'output3'
-if path.exists(directory+ 'output3'):
-    rmtree(directory + 'output3')
-    makedirs(directory + 'output3')
 
-    
-iters = 1000
+###############################################################################
+
+#  Clear directory 'output3'
+#if path.exists(directory+ 'output3'):
+#    rmtree(directory + 'output3')
+#    makedirs(directory + 'output3')
+
+## Loop #######################################################################
+iters = 9000
 n_vert = len(obj.data.vertices)
 
 ptCloudArr = np.empty((iters, n_vert*3))
@@ -158,20 +156,22 @@ ptCloudArr = np.empty((iters, n_vert*3))
 fname = str(time()) #obj_name + 
 
 #224x224
-bpy.context.scene.render.resolution_x = 448 
-bpy.context.scene.render.resolution_y = 448
+bpy.data.scenes['Scene'].render.resolution_percentage = 100
+bpy.context.scene.render.resolution_x = 224
+bpy.context.scene.render.resolution_y = 224
 for i in np.arange(iters):
     # Assign random poses to object
     randomRotateTranslate(obj, 3)
-
+    
+    randomFocalLength(bpy.data.cameras['Camera'], 35, 6.7)
     # Save Image
-    bpy.context.scene.render.filepath = directory+'output3/{}_{:03}.png'.format(fname, i)
+    bpy.context.scene.render.filepath = outdir + '{}_{:04}.png'.format(fname, i)
     
 
     bpy.ops.render.render( write_still=True)
     
     # Save point cloud to .csv
-    saveMeshAsCloud(obj, cam, directory+'output3/{}_{:03}.csv'.format(fname, i), False)
+    saveMeshAsCloud(obj, cam, outdir + '{}_{:04}.csv'.format(fname, i), False)
 
 #filename = os.path.join(os.path.basename(bpy.data.filepath), "/home/arvardaz/SFT_with_CNN/getCalibMatBlender.py")
 #exec(compile(open(filename).read(), filename, 'exec'))

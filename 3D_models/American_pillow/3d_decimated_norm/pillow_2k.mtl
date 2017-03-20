@@ -1,7 +1,7 @@
 # Blender MTL File: 'None'
 # Material Count: 1
 
-newmtl pillow_2k
+newmtl pillow_2k.005
 Ns 0.000000
 Ka 1.000000 1.000000 1.000000
 Kd 1.000000 1.000000 1.000000
@@ -10,4 +10,4 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd pillow_2k.png
+map_Kd /home/arvardaz/SFT_with_CNN/3D_models/American_pillow/3d_decimated/pillow_2k.png
