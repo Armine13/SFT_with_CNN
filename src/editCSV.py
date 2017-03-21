@@ -10,7 +10,7 @@ import re
 
 from glob import glob1
 
-datapath = "../output3/"
+datapath = "../datasets/dataset_rt+fl/"
 
 
 filelist = glob1(datapath, "*.csv")

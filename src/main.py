@@ -142,17 +142,18 @@ def runTest(data, cost, print_step=10):
             
 if __name__ == '__main__':
     
-    datapath = "../datasets/dataset_rt+fl"
+    trainpath = "../datasets/dataset_rt+fl/train"
+    testpath = "../datasets/dataset_rt+fl/test"
 
     #params
 
     #Base learning rate
-    lr = 0.0002
+    lr = 0.0003
     reg_constant = 0.03
     
     
 #    train_it = 100
-    num_epochs = 1
+    num_epochs = 1000
     batch_size = 10
     
     
@@ -165,16 +166,21 @@ if __name__ == '__main__':
     with tf.Graph().as_default():
       #  with tf.device('/cpu:0'):
 
-        _, filenames = getFileList(datapath)
-        filenames = filenames[:100]
-        
-        # Divide train/test 
-        train_size = int(round(len(filenames) * 0.9))
-        filenames_train = filenames[:train_size]
-        filenames_test = filenames[train_size:]
+#        _, filenames = getFileList(datapath)
+#        filenames = filenames[:100]
+#        
+#        # Divide train/test 
+#        train_size = int(round(len(filenames) * 0.9))
+#        filenames_train = filenames[:train_size]
+#        filenames_test = filenames[train_size:]
 
-        images_batch_train, points_batch_train = input_pipeline(datapath, filenames_train, batch_size, num_epochs=num_epochs, read_threads=1)
-        images_batch_test, points_batch_test = input_pipeline(datapath, filenames_test, batch_size=1, num_epochs=1, read_threads=1)
+        _, filenames_train = getFileList(trainpath)
+        _, filenames_test = getFileList(testpath)
+        
+        
+        train_size = len(filenames_train)
+        images_batch_train, points_batch_train = input_pipeline(trainpath, filenames_train, batch_size, num_epochs=num_epochs, read_threads=1)
+        images_batch_test, points_batch_test = input_pipeline(testpath, filenames_test, batch_size=1, num_epochs=1, read_threads=1)
 
 
         x = tf.placeholder(tf.float32, [None, 224, 224, 3])
@@ -199,7 +205,7 @@ if __name__ == '__main__':
           lr,                # Base learning rate.
           batch * batch_size,  # Current index into the dataset.
           train_size,          # Decay step.
-          0.95,                # Decay rate.
+          0.9,                # Decay rate.
           staircase=True)
         
         optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train, global_step=batch)
@@ -228,13 +234,13 @@ if __name__ == '__main__':
 
 
             vgg.load_weights('weights/vgg16_weights.npz', sess)
-            vgg.load_retrained_weights('weights/weights_fc_1489763677.84.npz',sess)
+            
+            vgg.load_retrained_weights('weights/weights_fc_1490031412.76.npz',sess)#21/03
+            
+#            vgg.load_retrained_weights('weights/weights_fc_1489763677.84.npz',sess)
+            
 #            vgg.load_retrained_weights('weights/weights_trained_on_dec_norm_v2.npz',sess)
             
-#            vgg.load_retrained_weights('weights/weights_fc_1489169964.99.npz', sess)            
-
-#            vgg.load_retrained_weights('weights/weights_fc_1489495674.53.npz',sess)
-
             ## Traininng ######################################################
            
             if train:
