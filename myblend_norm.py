@@ -4,6 +4,8 @@ import numpy as np
 import time
 from os import makedirs, path
 from shutil import rmtree
+from glob import glob1
+#from scipy.misc import imread, imsave
 import sys
 from time import time
 #######################
@@ -42,46 +44,27 @@ def saveEdgesLen(meshObj, points):
     np.savetxt("edges.csv", edges)
     np.savetxt("dist.csv", dist)
     
-def saveMeshAsCloud(meshObj, camObj, filename, saveEdgesFlag = False):
+def saveMeshAsCloud(meshObj, camObj, filename, path, saveEdgesFlag = False):
     """ Takes a blender object and saves the corresponding
     point cloud to <filename.csv> file """
-    
     n_vert = len(meshObj.data.vertices)
     points = np.empty((n_vert, 3))    
     
-#    camWorldMat = np.asarray(camObj.matrix_world)
-    #Invert [Rt]
     worldCamMat = camObj.matrix_world.inverted()
     
-    worldCamMat = Matrix(worldCamMat) #from numpy to Matrix
-        
+    i = Matrix(np.eye(3)*[1,-1,-1])
+    
     points = np.empty((n_vert, 3))    
     for vertex in meshObj.data.vertices:
-        cam_co = worldCamMat * meshObj.matrix_world * vertex.co 
+        cam_co = worldCamMat *  meshObj.matrix_world * vertex.co#World to Camera frame
+        cam_co = i * cam_co #Transform from left hand to right hand coords
         points[vertex.index,:] = cam_co.to_tuple() 
     
-    if saveEdgesFlag == True:
-        saveEdgesLen(meshObj, points)
-        
     points = points.flatten()
-    
-#    np.savetxt(filename, points.reshape(1, points.shape[0]),delimiter=",")
     
     data = np.concatenate(([filename[:-3] + 'png'], points))
-    np.savetxt(filename, data.reshape(1, data.shape[0]), delimiter=",", fmt="%s")
-
-
-def getCloud(meshObj):
-    """ Takes a blender object and returns the corresponding
-    point cloud to as a 1D numpy array"""
-    
-    n_vert = len(meshObj.data.vertices)
-    points = np.empty((n_vert, 3))    
-    for vertex in meshObj.data.vertices:
-        global_co = meshObj.matrix_world * vertex.co #Covert object coords to global
-        points[vertex.index,:] = global_co.to_tuple()     
-    points = points.flatten()
-    return points
+    np.savetxt(path+filename, data.reshape(1, data.shape[0]), delimiter=",", fmt="%s")
+  
     
 def look_at(obj_camera, point):
     """ Points given camera in the direction of point """
@@ -96,22 +79,126 @@ def randomFocalLength(camObj, mu, std):
     #change focal length
     camObj.lens = std * np.random.randn() + mu
 
+def randomLighting(mu,std):
+    bpy.data.objects['Sphere']#top
+    bpy.data.objects['Sphere.001']#bottom
+    bpy.data.objects['Sphere.002']#left
+    bpy.data.objects['Sphere.003']#right
+    ##Sphere 1 (top)
+    obj = bpy.data.objects['Sphere']
+    hide = np.random.randint(2)
+    obj.hide = hide
+    if not hide:
+        a = np.random.uniform(-200, 200)
+        b = np.random.uniform(-200, 200)
+        obj.location = Vector((a, b, 200))    
+    ##Sphere 2 (bottom)
+    obj = bpy.data.objects['Sphere.001']
+    hide = np.random.randint(2)
+    obj.hide = hide
+    if not hide:
+        a = np.random.uniform(-200, 200)
+        b = np.random.uniform(-200, 200)
+        obj.location = Vector((a, b, -200))    	
+    ##Sphere 2 (left)
+    obj = bpy.data.objects['Sphere.002']
+    hide = np.random.randint(2)
+    obj.hide = hide
+    if not hide:
+        a = np.random.uniform(-200, 200)
+        b = np.random.uniform(-200, 200)
+        obj.location = Vector((200, a, b))    
+    ##Sphere 2 (right)
+    obj = bpy.data.objects['Sphere.003']
+    hide = np.random.randint(2)
+    obj.hide = hide
+    if not hide:
+        a = np.random.uniform(-200, 200)
+        b = np.random.uniform(-200, 200)
+        obj.location = Vector((-200, a, b))    
+    bpy.data.materials['sphereMat'].node_tree.nodes['Emission'].inputs[1].default_value = std*np.random.randn()+mu#140, 500
+    bpy.data.materials['sphereMat.001'].node_tree.nodes['Emission'].inputs[1].default_value = std*np.random.randn()+mu
+    bpy.data.materials['sphereMat.002'].node_tree.nodes['Emission'].inputs[1].default_value = std*np.random.randn()+mu
+    bpy.data.materials['sphereMat.003'].node_tree.nodes['Emission'].inputs[1].default_value = std*np.random.randn()+mu
+    for ob in bpy.context.scene.objects: ob.hide_render = ob.hide
+
+def setBackgroundImage(image_path, planeObj):
+    
+    bpy.ops.object.material_slot_remove() 
+    
+    bpy.data.objects['PlaneBG'].rotation_euler = (np.deg2rad(90), np.deg2rad(np.random.randint(0,4)*90), 0)
+    
+    mat_name = "myMaterial"
+    mat = (bpy.data.materials.get(mat_name) or
+           bpy.data.materials.new(mat_name))
+    
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nodes = nt.nodes
+    links = nt.links
+    
+    # clear
+    while(nodes): nodes.remove(nodes[0])
+    
+    output  = nodes.new("ShaderNodeOutputMaterial")
+    diffuse = nodes.new("ShaderNodeBsdfDiffuse")
+    texture = nodes.new("ShaderNodeTexImage")
+    uvmap   = nodes.new("ShaderNodeUVMap")
+    
+    texture.image = bpy.data.images.load(image_path)
+    uvmap.uv_map = "UV"
+    
+    links.new( output.inputs['Surface'], diffuse.outputs['BSDF'])
+    links.new(diffuse.inputs['Color'],   texture.outputs['Color'])
+    
+    planeObj.data.materials.append(mat)
+    planeObj.active_material = mat
+    
+#    bpy.ops.object.material_slot_remove()                       
+
+def unpackBackground(bg_plane):
+    bpy.ops.object.select_all(action='DESELECT')
+    bg_plane.select = True
+    
+    bg_plane.hide = False
+    
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            for region in area.regions:
+                if region.type == 'WINDOW':
+                    override = {'area': area, 'region': region, 'edit_object': bpy.context.edit_object}
+                    bpy.ops.uv.smart_project(override)
+                    
+def randomImageSlice(pathToIm, outname, outpath):
+    
+    im = imread(pathToIm)
+    a = np.random.choice(im.shape[0], 2)
+    b = np.random.choice(im.shape[1], 2)
+    
+    f = outpath+outname
+    imsave(f,im[min(a):max(a), min(b):max(b)])
+    return f
+
 ###############################################################################
 
 directory = os.path.dirname(os.path.realpath(sys.argv[0])) + '/SFT_with_CNN/'
-outdir = directory + 'dataset_rt+fl/'
+outdir = directory + 'temp/'#'dataset_rt+fl/'
+
+#background
+bg_dir = directory + 'SBU-RwC90/mixed/'
+bg_list = glob1(bg_dir, '*.jpg')
 
 #directory = '/home/arvardaz/SFT_with_CNN/'
 
 ##Delete all existing objects from scene except Camera and Plane
 scene = bpy.context.scene
-for ob in scene.objects:
-    ob.select = True
-#    bpy.ops.object.track_clear(type='CLEAR')
-    if ob.name == "Camera" or ob.name == 'Plane':
-        ob.select = False
-#        bpy.ops.object.track_clear(type='CLEAR')
-bpy.ops.object.delete()
+#for ob in scene.objects:
+#    ob.select = True
+##    bpy.ops.object.track_clear(type='CLEAR')
+#    if ob.name == "Camera" or ob.name == 'Plane':
+#        ob.select = False
+##        bpy.ops.object.track_clear(type='CLEAR')
+#bpy.ops.object.delete()
 
 ## Camera object ##############################################################
 cam = bpy.data.objects["Camera"]
@@ -125,7 +212,7 @@ bpy.ops.import_scene.obj(filepath = directory + '3D_models/American_pillow/3d_de
 #Find object in scene
 scene = bpy.context.scene
 for ob in scene.objects:
-    if not('Camera' in ob.name or 'Plane' in ob.name):
+    if not('Camera' in ob.name or 'Plane' in ob.name or 'Sphere' in ob.name):
         obj_name = ob.name
 obj = bpy.data.objects[obj_name]
 #
@@ -148,13 +235,16 @@ bpy.ops.xps_tools.convert_to_cycles_selected()
 #    makedirs(directory + 'output3')
 
 ## Loop #######################################################################
-iters = 9000
+iters = 10
 n_vert = len(obj.data.vertices)
 
 ptCloudArr = np.empty((iters, n_vert*3))
 
 fname = str(time()) #obj_name + 
 
+planeBG = bpy.data.objects['PlaneBG']
+unpackBackground(planeBG)
+           
 #224x224
 bpy.data.scenes['Scene'].render.resolution_percentage = 100
 bpy.context.scene.render.resolution_x = 224
@@ -164,14 +254,19 @@ for i in np.arange(iters):
     randomRotateTranslate(obj, 3)
     
     randomFocalLength(bpy.data.cameras['Camera'], 35, 6.7)
+    
+    randomLighting(23000, 10000)
+    
+    #select and load background image
+    im_idx = np.random.choice(len(bg_list))
+#    setBackgroundImage(randomImageSlice(bg_dir + bg_list[im_idx], 'temp.jpg', bg_dir+'temp/'), planeBG)
+    setBackgroundImage(bg_dir + bg_list[im_idx], planeBG)
+    
     # Save Image
     bpy.context.scene.render.filepath = outdir + '{}_{:04}.png'.format(fname, i)
-    
-
     bpy.ops.render.render( write_still=True)
-    
     # Save point cloud to .csv
-    saveMeshAsCloud(obj, cam, outdir + '{}_{:04}.csv'.format(fname, i), False)
+    saveMeshAsCloud(obj, cam, '{}_{:04}.csv'.format(fname, i), outdir, False)
 
 #filename = os.path.join(os.path.basename(bpy.data.filepath), "/home/arvardaz/SFT_with_CNN/getCalibMatBlender.py")
 #exec(compile(open(filename).read(), filename, 'exec'))

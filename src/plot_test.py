@@ -63,7 +63,9 @@ def plot_results(pred, gt, im, loss=None, iso_loss=None):
 
 
 if __name__ == '__main__':
-    data = np.load('results/test1490003177.42.npz')
+    
+    data = np.load('results/test1490101705.55.npz')
+#    data = np.load('results/test1490003177.42.npz')
     
     edges = np.genfromtxt("edges.csv", dtype=np.int32)
     synth_gt_dist = np.genfromtxt("dist_norm.csv")
@@ -71,7 +73,7 @@ if __name__ == '__main__':
     n = data['pred'].shape[0]
     cum_e = 0
     cum_il = 0
-    for i in range(3):
+    for i in range(n):
 #    for i in range(n):
         loss = data['pred'][i,0]
         pred = data['pred'][i,1:].reshape((1002,3))
@@ -96,4 +98,4 @@ if __name__ == '__main__':
     print("Mean RMSE : {}".format(cum_e*1.0/(i+1)))        
     print("Mean GT edge length = {}".format(np.mean(synth_gt_dist)))
     print("Mean predicted edge length = {}".format(np.mean(pred_dist)))
-    print("Mean iso loss: {}".format(cum_il*1.0/(i+1)))
+    print("Mean iso loss: {} ({:.3}%)".format(cum_il*1.0/(i+1), cum_il*1.0/(i+1)*100/np.mean(synth_gt_dist)))

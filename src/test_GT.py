@@ -71,7 +71,7 @@ if __name__ == '__main__':
     dr = '/home/arvardaz/SFT_with_CNN/american_pillow_gt/'
     K = np.array([[1887.3979937413362, 0, 1187.4168448401772],[0,1887.3979937413362,807.75879695084984],[0,0,1]])
     
-    edges = np.genfromtxt("edges_real_gt.csv", dtype=np.int32)
+    edges = np.genfromtxt("edges.csv", dtype=np.int32)
     real_gt_dist = np.genfromtxt("dist_real_gt.csv")
     
     with tf.Graph().as_default():
@@ -80,15 +80,15 @@ if __name__ == '__main__':
             imgs = tf.placeholder(tf.float32, [None, 224, 224, 3])
             vgg = vgg16(imgs, 'weights/vgg16_weights.npz', sess)
             
-            vgg.load_retrained_weights('weights/weights_trained_on_dec_norm (copy).npz',sess)
+            vgg.load_retrained_weights('weights/weights_fc_1490094825.36.npz',sess)
 #            vgg.load_retrained_weights('weights/weights_fc_1489578184.74.npz',sess)
             
             img_file, gt_file = getFileList(dr)
                     
             cum_e = 0
             cum_il = 0
-#            for i in range(len(img_file)):                
-            for i in range(5):
+            for i in range(len(img_file)):                
+#            for i in range(5):
                 img = imread(img_file[i], mode='RGB')
                 
                 gt = np.genfromtxt(gt_file[i])
@@ -98,7 +98,7 @@ if __name__ == '__main__':
                 img = imresize(img, (224, 224))
             
                 pred = sess.run(vgg.pred, feed_dict={vgg.imgs: [img]})
-                pred *= 0.21504465413752796
+                pred /= 4.65
                 
                 pred.resize((1002, 3))
                 if pred[0,2] < 0:
