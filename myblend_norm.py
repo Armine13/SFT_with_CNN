@@ -169,24 +169,16 @@ def unpackBackground(bg_plane):
                     override = {'area': area, 'region': region, 'edit_object': bpy.context.edit_object}
                     bpy.ops.uv.smart_project(override)
                     
-def randomImageSlice(pathToIm, outname, outpath):
-    
-    im = imread(pathToIm)
-    a = np.random.choice(im.shape[0], 2)
-    b = np.random.choice(im.shape[1], 2)
-    
-    f = outpath+outname
-    imsave(f,im[min(a):max(a), min(b):max(b)])
-    return f
+
 
 ###############################################################################
 
 directory = os.path.dirname(os.path.realpath(sys.argv[0])) + '/SFT_with_CNN/'
-outdir = directory + 'temp/'#'dataset_rt+fl/'
+outdir = directory + 'datasets/dataset_rt+fl+l/train/'
 
 #background
-bg_dir = directory + 'SBU-RwC90/mixed/'
-bg_list = glob1(bg_dir, '*.jpg')
+#bg_dir = directory + 'SBU-RwC90/mixed/slices/'
+#bg_list = glob1(bg_dir, '*.jpg')
 
 #directory = '/home/arvardaz/SFT_with_CNN/'
 
@@ -235,32 +227,34 @@ bpy.ops.xps_tools.convert_to_cycles_selected()
 #    makedirs(directory + 'output3')
 
 ## Loop #######################################################################
-iters = 10
+iters = 10000
 n_vert = len(obj.data.vertices)
 
 ptCloudArr = np.empty((iters, n_vert*3))
 
 fname = str(time()) #obj_name + 
 
-planeBG = bpy.data.objects['PlaneBG']
-unpackBackground(planeBG)
+#planeBG = bpy.data.objects['PlaneBG']
+#unpackBackground(planeBG)
            
 #224x224
 bpy.data.scenes['Scene'].render.resolution_percentage = 100
 bpy.context.scene.render.resolution_x = 224
 bpy.context.scene.render.resolution_y = 224
+
+bpy.data.scenes['Scene'].cycles.samples = 800
+              
 for i in np.arange(iters):
     # Assign random poses to object
     randomRotateTranslate(obj, 3)
     
     randomFocalLength(bpy.data.cameras['Camera'], 35, 6.7)
     
-    randomLighting(23000, 10000)
+    randomLighting(35000, 10000)
     
     #select and load background image
-    im_idx = np.random.choice(len(bg_list))
-#    setBackgroundImage(randomImageSlice(bg_dir + bg_list[im_idx], 'temp.jpg', bg_dir+'temp/'), planeBG)
-    setBackgroundImage(bg_dir + bg_list[im_idx], planeBG)
+#    im_idx = np.random.choice(len(bg_list))
+#    setBackgroundImage(bg_dir + bg_list[im_idx], planeBG)
     
     # Save Image
     bpy.context.scene.render.filepath = outdir + '{}_{:04}.png'.format(fname, i)

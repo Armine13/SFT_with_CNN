@@ -188,9 +188,8 @@ bpy.ops.xps_tools.convert_to_cycles_selected()
 
 ## Loop #######################################################################
 iters = 1
-bg_plane = bpy.data.objects['Plane.001']
+bg_plane = bpy.data.objects['PlaneBG']
 n_vert = len(obj.data.vertices)
-ptCloudArr = np.empty((iters, n_vert*3))
 fname = str(time()) #obj_name + 
 
            

@@ -30,7 +30,7 @@ def equal_axis(ax, X, Y, Z):
     ax.set_zlim(mid_z - max_range, mid_z + max_range)
 
     
-def plot_results(pred, gt, im, loss=None, iso_loss=None):
+def plot_results(pred, gt, loss=None, loss_p=None, iso_loss=None, iso_loss_p=None, id=None):
 
     # First subplot
     #################
@@ -55,8 +55,7 @@ def plot_results(pred, gt, im, loss=None, iso_loss=None):
     ax.scatter(pred[:,0], pred[:,1], pred[:,2],c='r')
     ax.scatter(0, 0, 0, c='c', marker='o')
     equal_axis(ax, pred[:,0], pred[:,1], pred[:,2])
-    
-    plt.suptitle("RMSE = {:.4}\n isometric loss={:.4}".format(loss, iso_loss),fontsize=18)
+    plt.suptitle("id={}  RMSE = {:.4}({:.4}%)  iso loss={:.4}({:.4}%)".format(id, loss,loss_p, iso_loss, iso_loss_p),fontsize=18)
     
     plt.show()
 
@@ -64,38 +63,52 @@ def plot_results(pred, gt, im, loss=None, iso_loss=None):
 
 if __name__ == '__main__':
     
-    data = np.load('results/test1490101705.55.npz')
-#    data = np.load('results/test1490003177.42.npz')
+#    data = np.load('results/test1490261891.71.npz') #latest test results
     
+    data = np.load('results/test1490369973.19.npz')#from training data #########################################################33
+        
     edges = np.genfromtxt("edges.csv", dtype=np.int32)
     synth_gt_dist = np.genfromtxt("dist_norm.csv")
+    synth_edge_len= np.mean(synth_gt_dist)
+    obj_size = 17.1
     
     n = data['pred'].shape[0]
-    cum_e = 0
-    cum_il = 0
+    cumul_loss = 0
+    cumul_iso_loss = 0
     for i in range(n):
-#    for i in range(n):
-        loss = data['pred'][i,0]
-        pred = data['pred'][i,1:].reshape((1002,3))
+
+        pred = data['pred'][i,:].reshape((1002,3))
         gt = data['gt'][i].reshape((1002,3))
-        im = data['image'][i]
         
-        
+        loss = np.sqrt(((pred - gt) ** 2).mean())
         pred_dist = ([np.sqrt(np.sum(np.square(a-b))) for a,b in pred[edges]])
         iso_loss =np.mean(np.abs(synth_gt_dist - pred_dist))
         
-        cum_e += loss
-        cum_il += iso_loss
+        cumul_loss += loss
+        cumul_iso_loss += iso_loss
         
-        pred[:,1] = -pred[:,1]
-        pred[:,2] = -pred[:,2]
+#        pred[:,1] = -pred[:,1]
+#        pred[:,2] = -pred[:,2]
+#        
+#        gt[:,1] = -gt[:,1]
+#        gt[:,2] = -gt[:,2]
+#        
+        loss = np.sqrt(np.mean(np.square(gt-pred)))
+        loss_p = loss / obj_size * 100
         
-        gt[:,1] = -gt[:,1]
-        gt[:,2] = -gt[:,2]
+        iso_loss =np.mean(np.abs(synth_gt_dist - pred_dist))
+        iso_loss_p = iso_loss / synth_edge_len * 100
         
-        plot_results(pred, gt, im, loss, iso_loss)
-        print("{}. RMSE={} mean_iso_loss={} ({:.3}%)".format(i, loss, iso_loss, iso_loss*100/np.mean(synth_gt_dist)))
-    print("Mean RMSE : {}".format(cum_e*1.0/(i+1)))        
-    print("Mean GT edge length = {}".format(np.mean(synth_gt_dist)))
-    print("Mean predicted edge length = {}".format(np.mean(pred_dist)))
-    print("Mean iso loss: {} ({:.3}%)".format(cum_il*1.0/(i+1), cum_il*1.0/(i+1)*100/np.mean(synth_gt_dist)))
+        plot_results(pred, gt, loss, loss_p, iso_loss, iso_loss_p, i)
+        print("{0:6}. RMSE = {1:7.4f} ({2:8.4f}%)  mean_iso_loss = {3:7.4f} ({4:8.4f}%)".format(i, loss, loss_p, iso_loss, iso_loss_p))
+    mean_loss = cumul_loss / n
+    mean_loss_p = mean_loss / obj_size * 100
+    mean_iso_loss = cumul_iso_loss / n
+    mean_iso_loss_p = mean_iso_loss / synth_edge_len * 100
+    print("-----------------------------------------------------------------------------")
+    print("Mean RMSE    : {:7.4f} ({:8.4f}%)".format(mean_loss, mean_loss_p))
+    print("Mean iso loss: {:7.4f} ({:8.4f}%)".format(mean_iso_loss, mean_iso_loss_p))
+    
+#    print("Mean GT edge length = {}".format(np.mean(synth_gt_dist)))
+#    print("Mean predicted edge length = {}".format(np.mean(pred_dist)))
+    
