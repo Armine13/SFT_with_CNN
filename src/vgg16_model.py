@@ -14,7 +14,6 @@
 
 import tensorflow as tf
 import numpy as np
-from rnn_cell import GridLSTMCell
 
 class vgg16:
     def __init__(self, imgs, weights=None, sess=None):
@@ -196,14 +195,14 @@ class vgg16:
 
         # conv5_3
         with tf.name_scope('conv5_3') as scope:
-            kernel = tf.Variable(tf.truncated_normal([3, 3, 512, 512], dtype=tf.float32,
-                                                     stddev=1e-1), trainable=False, name='weights')
-            conv = tf.nn.conv2d(self.conv5_2, kernel, [1, 1, 1, 1], padding='SAME')
-            biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
-                                 trainable=False, name='biases')
-            out = tf.nn.bias_add(conv, biases)
+            self.conv5_3_kernel = tf.Variable(tf.truncated_normal([3, 3, 512, 512], dtype=tf.float32,
+                                                     stddev=1e-1), trainable=True, name='weights')
+            conv = tf.nn.conv2d(self.conv5_2, self.conv5_3_kernel, [1, 1, 1, 1], padding='SAME')
+            self.conv5_3_biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
+                                 trainable=True, name='biases')
+            out = tf.nn.bias_add(conv, self.conv5_3_biases)
             self.conv5_3 = tf.nn.relu(out, name=scope)
-            self.parameters += [kernel, biases]
+            self.parameters += [self.conv5_3_kernel, self.conv5_3_biases]
 
         # pool5
         self.pool5 = tf.nn.max_pool(self.conv5_3,
@@ -232,7 +231,7 @@ class vgg16:
             self.retrained_parameters += [self.fc1w, self.fc1b]
 
 
-#        # fc2
+        # fc2
         with tf.name_scope('fc2') as scope:
             self.fc2w = tf.Variable(tf.truncated_normal([4096, 4096],
                                                          dtype=tf.float32,
@@ -250,27 +249,6 @@ class vgg16:
             self.retrained_parameters += [self.fc2w, self.fc2b]
 
 
-#        with tf.name_scope('grid_lstm') as scope:
-#            n_depth = 5
-#            n_hidden = 500
-#            
-#            self.glstmw = tf.Variable(tf.random_normal([n_hidden, 4096],
-#                                                         dtype=tf.float32,
-#                                                         stddev=1e-1), trainable=True, name='weights')
-#            self.glstmb = tf.Variable(tf.constant(1.0, shape=[4096], dtype=tf.float32), 
-#                                    trainable=True, name='biases')
-#            
-#            lstm_cell = tf.contrib.rnn.GridLSTMCell(n_hidden)
-#            outputs,states = tf.contrib.rnn.rnn.rnn(lstm_cell, self.fc1,dtype=tf.float32)
-##            lstm_out,states = tf.nn.rnn_cell(self.lstml, self.fc1, dtype=tf.float32)
-#            
-#            out = []
-#            for i in xrange(n_depth*4096):
-#                out.append(tf.matmul(lstm_out[i], self.glstmw[i])+
-#                           self.glstmb[i])
-#            
-#            self.lstm = out
-
         with tf.name_scope('fc3') as scope:
             self.fc3w = tf.Variable(tf.random_normal([4096, 3006],
                                                 dtype=tf.float32)*tf.sqrt(2.0/3006),
@@ -278,7 +256,6 @@ class vgg16:
             self.fc3b = tf.Variable(tf.constant(0, shape=[3006], dtype=tf.float32),
                                trainable=True, name='biases')
             self.fc3l = tf.nn.bias_add(tf.matmul(self.fc2, self.fc3w), self.fc3b)
-#            self.fc3l = tf.nn.bias_add(tf.matmul(self.lstm, self.fc3w), self.fc3b)
 #            tf.summary.histogram("out_fc3w", self.fc3w)
 #            tf.summary.histogram("out_fc3b", self.fc3b)
             

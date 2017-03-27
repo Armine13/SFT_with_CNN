@@ -68,6 +68,8 @@ def saveWeights(vgg, retrained_layers_list, fname, print_message = False):
     for l in retrained_layers_list:
         exec("weights['fc{}_W'] = vgg.fc{}w.eval()".format(l, l))
         exec("weights['fc{}_b'] = vgg.fc{}b.eval()".format(l, l))
+    weights['conv5_3_kernel'] = vgg.conv5_3_kernel.eval()
+    weights['conv5_3_biases'] = vgg.conv5_3_biases.eval()
     full_name = 'weights/weights_fc_' + fname
     np.savez(full_name, **weights)
     if print_message:
@@ -142,22 +144,20 @@ def runTest(data, cost, print_step=10, saveData=False):
 if __name__ == '__main__':
     
     trainpath = "../datasets/dataset_rt+fl/train"
-#    testpath = "../datasets/dataset_rt+fl/test"
-    
-    testpath = "../temp"
+    testpath = "../datasets/dataset_rt+fl/test"
 
     #params
 
     #Base learning rate
     lr = 0.0001
     lr_decay = 1
-    reg_constant = 0.05
+    reg_constant = 0#~ reg_constant = 0.05
     
     read_threads = 8
-    num_epochs = 10000
+    num_epochs = 100
     batch_size = 4
     
-    train = False
+    train = True
     test = True
     
     retrained_layers = range(1,4)
@@ -190,17 +190,17 @@ if __name__ == '__main__':
         #isometric_loss(vgg.pred, edges, dist)
         cost_train = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred)))) + lossL2 * reg_constant
         cost_test = tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, vgg.pred))))
-
-        batch = tf.Variable(0)
-        learning_rate = tf.train.exponential_decay(
-          lr,                # Base learning rate.
-          batch * batch_size,  # Current index into the dataset.
-          train_size,          # Decay step.
-          lr_decay,                # Decay rate.
-          staircase=True)
+        learning_rate = lr
+        #~ batch = tf.Variable(0)
+        #~ learning_rate = tf.train.exponential_decay(
+          #~ lr,                # Base learning rate.
+          #~ batch * batch_size,  # Current index into the dataset.
+          #~ train_size,          # Decay step.
+          #~ lr_decay,                # Decay rate.
+          #~ staircase=True)
         
-        optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train, global_step=batch)
-        
+        optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost_train)#, global_step=batch)
+        #~ optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(cost_train)
 
         #Summary for cost
         tf.summary.scalar("cost", cost_test)
@@ -226,7 +226,7 @@ if __name__ == '__main__':
 
             vgg.load_weights('weights/vgg16_weights.npz', sess)
             
-            vgg.load_retrained_weights('weights/weights_latest.npz',sess)#21/03
+            vgg.load_retrained_weights('weights/weights_fc_latest.npz',sess)#21/03
                         
             ## Traininng ######################################################
            
@@ -269,7 +269,7 @@ if __name__ == '__main__':
                         #Test if epoch ended
                         if step > 0 and (step % epoch_step == 0):
                             with tf.device('/cpu:0'):
-                                print("Mean Loss: {}  learning_rate: {:4} Time elapsed: {} min".format(np.mean(epoch_losses),learning_rate.eval(session=sess),(time.time() - epoch_start_time)/60.0))
+                                print("Mean Loss: {}  Time elapsed: {} min".format(np.mean(epoch_losses),(time.time() - epoch_start_time)/60.0))
                                 miniTest(data=[images_batch_test, points_batch_test],cost=cost_test)
     
                                 saveWeights(vgg, retrained_layers, fname, True)
@@ -286,6 +286,7 @@ if __name__ == '__main__':
                     coord.request_stop()
                     coord.join(threads)
                     saveWeights(vgg, retrained_layers, fname, True)
+                    saveWeights(vgg, retrained_layers, "latest", True)
                     writer.close()
                     # Testing
             if test:
