@@ -65,8 +65,8 @@ def isometric_loss(pred, edges, dist):
 def saveWeights(vgg, retrained_layers_list, fname, print_message = False):
     #Saving the weights            
     weights = {}
-    weights['conv5_3_Kernel'] = vgg.conv5_3_kernel.eval()
-    weights['conv5_3_biases'] = vgg.conv5_3_biases.eval()
+#    weights['conv5_3_Kernel'] = vgg.conv5_3_kernel.eval()
+#    weights['conv5_3_biases'] = vgg.conv5_3_biases.eval()
     for l in retrained_layers_list:
         exec("weights['fc{}_W'] = vgg.fc{}w.eval()".format(l, l))
         exec("weights['fc{}_b'] = vgg.fc{}b.eval()".format(l, l))
@@ -154,9 +154,9 @@ if __name__ == '__main__':
     lr_decay = 1
     reg_constant = 0#~ reg_constant = 0.05
     
-    read_threads = 8
+    read_threads = 10
     num_epochs = 100
-    batch_size = 4
+    batch_size = 20
     
     train = True
     test = True

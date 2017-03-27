@@ -196,14 +196,14 @@ class vgg16:
         # conv5_3
         with tf.name_scope('conv5_3') as scope:
             self.conv5_3_kernel = tf.Variable(tf.truncated_normal([3, 3, 512, 512], dtype=tf.float32,
-                                                     stddev=1e-1), trainable=True, name='weights')
+                                                     stddev=1e-1), trainable=False, name='weights')
             conv = tf.nn.conv2d(self.conv5_2, self.conv5_3_kernel, [1, 1, 1, 1], padding='SAME')
             self.conv5_3_biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
-                                 trainable=True, name='biases')
+                                 trainable=False, name='biases')
             out = tf.nn.bias_add(conv, self.conv5_3_biases)
             self.conv5_3 = tf.nn.relu(out, name=scope)
-#            self.parameters += [self.conv5_3_kernel, self.conv5_3_biases]
-            self.retrained_parameters += [self.conv5_3_kernel, self.conv5_3_biases]
+            self.parameters += [self.conv5_3_kernel, self.conv5_3_biases]
+#            self.retrained_parameters += [self.conv5_3_kernel, self.conv5_3_biases]
             
         # pool5
         self.pool5 = tf.nn.max_pool(self.conv5_3,
