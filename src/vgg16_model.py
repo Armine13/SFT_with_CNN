@@ -202,8 +202,9 @@ class vgg16:
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, self.conv5_3_biases)
             self.conv5_3 = tf.nn.relu(out, name=scope)
-            self.parameters += [self.conv5_3_kernel, self.conv5_3_biases]
-
+#            self.parameters += [self.conv5_3_kernel, self.conv5_3_biases]
+            self.retrained_parameters += [self.conv5_3_kernel, self.conv5_3_biases]
+            
         # pool5
         self.pool5 = tf.nn.max_pool(self.conv5_3,
                                ksize=[1, 2, 2, 1],
@@ -227,7 +228,7 @@ class vgg16:
 #            tf.summary.histogram("out_fc1b", self.fc1b)
             
             self.fc1 = tf.nn.relu(fc1l)
-            #self.parameters += [self.fc1w, self.fc1b]
+#            self.parameters += [self.fc1w, self.fc1b]
             self.retrained_parameters += [self.fc1w, self.fc1b]
 
 
@@ -278,8 +279,8 @@ class vgg16:
         a = 1
         for i, k in enumerate(keys):
             #print i, k, np.shape(weights[k])
-            #if a > 4:
-             #   break
+#            if a < 2:
+#                continue
             sess.run(self.retrained_parameters[i].assign(weights[k]))
             a += 1
         print("Weights loaded")
