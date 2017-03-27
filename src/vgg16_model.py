@@ -173,25 +173,26 @@ class vgg16:
 
         # conv5_1
         with tf.name_scope('conv5_1') as scope:
-            kernel = tf.Variable(tf.truncated_normal([3, 3, 512, 512], dtype=tf.float32,
-                                                     stddev=1e-1), trainable=False, name='weights')
-            conv = tf.nn.conv2d(self.pool4, kernel, [1, 1, 1, 1], padding='SAME')
-            biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
-                                 trainable=False, name='biases')
-            out = tf.nn.bias_add(conv, biases)
+            self.conv5_1_kernel = tf.Variable(tf.truncated_normal([3, 3, 512, 512], dtype=tf.float32,
+                                                     stddev=1e-1), trainable=True, name='weights')
+            conv = tf.nn.conv2d(self.pool4, self.conv5_1_kernel, [1, 1, 1, 1], padding='SAME')
+            self.conv5_1_biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
+                                 trainable=True, name='biases')
+            out = tf.nn.bias_add(conv, self.conv5_1_biases)
             self.conv5_1 = tf.nn.relu(out, name=scope)
-            self.parameters += [kernel, biases]
-
+        #    self.parameters += [self.conv5_1_kernel, self.conv5_1_biases]
+            self.retrained_parameters += [self.conv5_1_kernel, self.conv5_1_biases]
         # conv5_2
         with tf.name_scope('conv5_2') as scope:
-            kernel = tf.Variable(tf.truncated_normal([3, 3, 512, 512], dtype=tf.float32,
-                                                     stddev=1e-1), trainable=False, name='weights')
-            conv = tf.nn.conv2d(self.conv5_1, kernel, [1, 1, 1, 1], padding='SAME')
-            biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
-                                 trainable=False, name='biases')
-            out = tf.nn.bias_add(conv, biases)
+            self.conv5_2_kernel = tf.Variable(tf.truncated_normal([3, 3, 512, 512], dtype=tf.float32,
+                                                     stddev=1e-1), trainable=True, name='weights')
+            conv = tf.nn.conv2d(self.conv5_1, self.conv5_2_kernel, [1, 1, 1, 1], padding='SAME')
+            self.conv5_2_biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
+                                 trainable=True, name='biases')
+            out = tf.nn.bias_add(conv, self.conv5_2_biases)
             self.conv5_2 = tf.nn.relu(out, name=scope)
-            self.parameters += [kernel, biases]
+         #   self.parameters += [self.conv5_2_kernel, self.conv5_2_biases]
+            self.retrained_parameters += [self.conv5_2_kernel, self.conv5_2_biases]
 
         # conv5_3
         with tf.name_scope('conv5_3') as scope:
