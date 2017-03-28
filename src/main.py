@@ -158,7 +158,7 @@ if __name__ == '__main__':
     num_epochs = 100
     batch_size = 20
     
-    train = True
+    train = False
     test = True
     
     retrained_layers = range(1,4)
@@ -227,7 +227,7 @@ if __name__ == '__main__':
 
             vgg.load_weights('weights/vgg16_weights.npz', sess)
             
-            vgg.load_retrained_weights('weights/weights_fc_latest.npz',sess)#21/03
+            vgg.load_retrained_weights('weights/weights_fc_overfit_0.3.npz',sess)#21/03
                         
             ## Traininng ######################################################
            
@@ -255,7 +255,7 @@ if __name__ == '__main__':
                         duration = time.time() - start_time
     
                         # Write the summaries and print an overview fairly often.
-                        if step % 100 == 0:
+                        if step % 20 == 0:
     #                        # Update the events file.
                             _, loss, summary_str = sess.run([optimizer, cost_test, summary_op], feed_dict={x: example, y:coords})
                             epoch_losses.append(loss)
