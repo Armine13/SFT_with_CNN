@@ -84,7 +84,8 @@ if __name__ == '__main__':
             imgs = tf.placeholder(tf.float32, [None, 224, 224, 3])
             vgg = vgg16(imgs, 'weights/vgg16_weights.npz', sess)
             
-            vgg.load_retrained_weights('weights/weights_latest.npz',sess)
+#            vgg.load_retrained_weights('weights/weights_fc_conv3_best.npz',sess)
+            vgg.load_retrained_weights('weights/weights_fc_p+fl+l_2.18.npz',sess)
 #            vgg.load_retrained_weights('weights/weights_fc_1489578184.74.npz',sess)
             
             img_file, gt_file = getFileList(dr)

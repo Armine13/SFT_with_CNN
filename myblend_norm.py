@@ -174,7 +174,7 @@ def unpackBackground(bg_plane):
 ###############################################################################
 
 directory = os.path.dirname(os.path.realpath(sys.argv[0])) + '/SFT_with_CNN/'
-outdir = directory + 'datasets/dataset_rt+fl+l/train/'
+outdir = directory + 'datasets/dataset_rt+fl+l2/train/'
 
 #background
 #bg_dir = directory + 'SBU-RwC90/mixed/slices/'

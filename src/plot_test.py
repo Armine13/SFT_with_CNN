@@ -65,8 +65,10 @@ if __name__ == '__main__':
     
 #    data = np.load('results/test1490261891.71.npz') #latest test results
     
-    data = np.load('results/test1490369973.19.npz')#from training data #########################################################33
-        
+    data = np.load('results/test_p+fl_conv3_x60.npz')#
+#    data = np.load('results/test_p+fl+l_conv3.npz')#    
+                  
+                  
     edges = np.genfromtxt("edges.csv", dtype=np.int32)
     synth_gt_dist = np.genfromtxt("dist_norm.csv")
     synth_edge_len= np.mean(synth_gt_dist)

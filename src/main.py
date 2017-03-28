@@ -94,7 +94,7 @@ def runTest(data, cost, print_step=10, saveData=False):
     coord2 = tf.train.Coordinator()
     threads2 = tf.train.start_queue_runners(coord=coord2, sess=sess)
     
-    n_saved = 20
+    n_saved = 60
     
     data = {}
     data['pred'] = np.empty((n_saved, 3006))
@@ -123,7 +123,8 @@ def runTest(data, cost, print_step=10, saveData=False):
                 data['pred'][step,:] = vgg.pred.eval(feed_dict={x: image_test, y:points_test})
           ##      data['pred'][step, 0] = test_loss
           #      data['image'][step] = image_test
-            
+            else:
+                break
             step += 1
             
         
@@ -150,6 +151,11 @@ if __name__ == '__main__':
     
     trainpath = "../datasets/dataset_rt+fl/train"
     testpath = "../datasets/dataset_rt+fl/test"
+    weights_path = 'weights/weights_fc_conv3_best.npz'
+
+#    trainpath = "../datasets/dataset_rt+fl+l/train"
+#    testpath = "../datasets/dataset_rt+fl+l/test"
+#    weights_path = 'weights/weights_fc_p+fl+l_2.18.npz'
 
     #params
 
@@ -162,7 +168,7 @@ if __name__ == '__main__':
     num_epochs = 100000
     batch_size = 4
     
-    train = True
+    train = False
     test = True
     
     retrained_layers = range(1,4)
@@ -231,7 +237,7 @@ if __name__ == '__main__':
 
             vgg.load_weights('weights/vgg16_weights.npz', sess)
             
-            vgg.load_retrained_weights('weights/weights_fc_latest.npz',sess)#21/03
+            vgg.load_retrained_weights(weights_path, sess)#21/03
                         
             ## Traininng ######################################################
            
