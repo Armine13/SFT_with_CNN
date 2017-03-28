@@ -3,3 +3,4 @@ temp*
 src/weights
 src/logs
 src/results
+*.pyc
