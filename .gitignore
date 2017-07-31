@@ -1,0 +1,9 @@
+__pycache__
+src/weights
+src/logs
+src/results
+src2/results
+thesis/src/results/*
+thesis/src2/results/*
+src/figures
+*/*.pyc

@@ -1,0 +1,22 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May 18 11:09:10 2017
+
+@author: arvardaz
+"""
+
+p = '/home/arvardaz/Dropbox/datasets/fl/dataset_american_pillow_gt_square'
+
+
+paths = [p, p+'/test/',p+'/train/', p+'/val/']
+files = [glob1(path, '*.csv') for path in paths ]
+
+for f in files:
+    a = open(f, 'r+')
+    text = a.read()
+    text = re.sub(r"1887.3979937413362","264.2357191237871", text)
+    a.seek(0)
+    a.write(text)
+    a.truncate()
+    a.close()
